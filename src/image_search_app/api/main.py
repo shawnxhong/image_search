@@ -3,7 +3,13 @@ from fastapi import FastAPI
 from image_search_app.agent.graph import SearchAgent
 from image_search_app.db import create_all
 from image_search_app.ingestion.pipeline import IngestionPipeline
-from image_search_app.schemas import DualListSearchResponse, ImageSearchRequest, TextSearchRequest
+from image_search_app.schemas import (
+    DualListSearchResponse,
+    ImageSearchRequest,
+    IngestRequest,
+    IngestResponse,
+    TextSearchRequest,
+)
 
 app = FastAPI(title="Agentic Image Search")
 
@@ -21,10 +27,10 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/ingest")
-def ingest_image(image_path: str) -> dict[str, str]:
-    image_id = ingestion.ingest(image_path)
-    return {"image_id": image_id}
+@app.post("/ingest", response_model=IngestResponse)
+def ingest_image(request: IngestRequest) -> IngestResponse:
+    image_id = ingestion.ingest(request.image_path)
+    return IngestResponse(image_id=image_id, ingestion_status="ready")
 
 
 @app.post("/search/text", response_model=DualListSearchResponse)

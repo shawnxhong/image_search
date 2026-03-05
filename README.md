@@ -7,6 +7,7 @@ This repository contains a starter architecture for an agentic image search syst
 ```text
 .
 ├── MVP_PLAN.md
+├── PHASE0_CONTRACTS.md
 ├── pyproject.toml
 ├── README.md
 ├── src/
@@ -18,7 +19,8 @@ This repository contains a starter architecture for an agentic image search syst
 │       ├── api/
 │       │   └── main.py
 │       ├── agent/
-│       │   └── graph.py
+│       │   ├── graph.py
+│       │   └── langgraph_flow.py
 │       ├── ingestion/
 │       │   ├── exif.py
 │       │   ├── captioner.py
@@ -33,6 +35,7 @@ This repository contains a starter architecture for an agentic image search syst
 │           ├── embeddings.py
 │           └── retrievers.py
 └── tests/
+    ├── test_noop_search.py
     └── test_time_parser.py
 ```
 
@@ -43,6 +46,7 @@ This repository contains a starter architecture for an agentic image search syst
 - Time parser + intent parser + hard filter stubs.
 - LangGraph orchestration skeleton with deterministic-tool boundaries.
 - FastAPI skeleton endpoints for ingest/search.
+- Phase 0 contract record in `PHASE0_CONTRACTS.md`.
 
 ## Quick start
 
@@ -51,4 +55,25 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
 uvicorn image_search_app.api.main:app --reload
+```
+
+## API examples
+
+### Ingest
+
+```json
+POST /ingest
+{
+  "image_path": "./images/sample.jpg"
+}
+```
+
+### Text search
+
+```json
+POST /search/text
+{
+  "query": "find photos with tom on a beach last year",
+  "top_k": 20
+}
 ```

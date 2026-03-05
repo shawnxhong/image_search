@@ -8,7 +8,11 @@ from pydantic import BaseModel, Field
 class PersonTag(BaseModel):
     name: str | None = None
     face_id: str
-    bbox: list[int] = Field(description="[x_min, y_min, x_max, y_max]")
+    bbox: list[int] = Field(
+        min_length=4,
+        max_length=4,
+        description="[x_min, y_min, x_max, y_max]",
+    )
     confidence: float = 0.0
     source: Literal["user_tag", "auto"] = "auto"
 
@@ -36,6 +40,15 @@ class ImageSearchRequest(BaseModel):
     image_path: str
     query: str | None = None
     top_k: int = 20
+
+
+class IngestRequest(BaseModel):
+    image_path: str
+
+
+class IngestResponse(BaseModel):
+    image_id: UUID
+    ingestion_status: str
 
 
 class MatchExplanation(BaseModel):

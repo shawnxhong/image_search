@@ -24,10 +24,12 @@ class SearchAgent:
     This can be migrated to a full LangGraph StateGraph once tools stabilize.
     """
 
-    def __init__(self) -> None:
-        store = ChromaStore()
-        self.retriever = RetrieverService(store=store, embeddings=EmbeddingService())
-        self.intent_parser = IntentParser()
+    def __init__(self, retriever: RetrieverService | None = None, intent_parser: IntentParser | None = None) -> None:
+        if retriever is None:
+            store = ChromaStore()
+            retriever = RetrieverService(store=store, embeddings=EmbeddingService())
+        self.retriever = retriever
+        self.intent_parser = intent_parser or IntentParser()
 
     def search_text(self, query: str, top_k: int | None = None) -> DualListSearchResponse:
         k = top_k or settings.default_top_k
@@ -44,6 +46,9 @@ class SearchAgent:
         return self._assemble(candidates, intent)
 
     def _assemble(self, candidates: list[RankedCandidate], intent) -> DualListSearchResponse:
+        if not candidates:
+            return DualListSearchResponse(solid_results=[], soft_results=[])
+
         with get_session() as session:
             records = {
                 rec.image_id: rec
@@ -75,5 +80,4 @@ class SearchAgent:
             else:
                 soft.append(item)
 
-        # Keep soft as semantic list; optionally de-duplicate from solid by construction.
         return DualListSearchResponse(solid_results=solid, soft_results=soft)
