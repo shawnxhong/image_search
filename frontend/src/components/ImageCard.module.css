@@ -1,0 +1,28 @@
+.card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.thumb {
+  width: 100%;
+  object-fit: cover;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+  display: block;
+}
+
+.content {
+  padding: 10px;
+  font-size: 13px;
+}
+
+.muted {
+  color: #6b7280;
+  word-break: break-all;
+}
+
+.reason {
+  margin: 6px 0 0;
+}

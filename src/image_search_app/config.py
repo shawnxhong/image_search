@@ -9,9 +9,9 @@ class Settings(BaseSettings):
     image_collection: str = "image_embeddings"
     default_top_k: int = 20
     default_timezone: str = "UTC"
-    caption_model_name: str = "stub-captioner-v1"
-    image_embedding_model_name: str = "stub-image-embedder-v1"
-    text_embedding_model_name: str = "stub-text-embedder-v1"
+    caption_model_name: str = "Salesforce/blip-image-captioning-base"
+    clip_model_name: str = "openai/clip-vit-base-patch32"
+    clip_embedding_dim: int = 512
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="IMG_SEARCH_")
 

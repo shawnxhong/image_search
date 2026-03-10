@@ -46,9 +46,36 @@ class IngestRequest(BaseModel):
     image_path: str
 
 
+class DetectedFace(BaseModel):
+    face_id: str
+    bbox: list[int] = Field(
+        min_length=4,
+        max_length=4,
+        description="[x_min, y_min, x_max, y_max]",
+    )
+    confidence: float = 0.0
+    name: str | None = None
+
+
 class IngestResponse(BaseModel):
     image_id: UUID
+    file_path: str
     ingestion_status: str
+    faces: list[DetectedFace] = Field(default_factory=list)
+
+
+class FaceNameEntry(BaseModel):
+    face_id: str
+    name: str
+
+
+class UpdateFacesRequest(BaseModel):
+    faces: list[FaceNameEntry]
+
+
+class UpdateFacesResponse(BaseModel):
+    image_id: UUID
+    updated: int
 
 
 class MatchExplanation(BaseModel):

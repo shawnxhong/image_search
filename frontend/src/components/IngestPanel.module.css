@@ -1,0 +1,132 @@
+.panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.hint {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+
+.browseRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.browseBtn {
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.browseBtn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #111827;
+}
+
+.browseBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.clearBtn {
+  background: none;
+  color: #6b7280;
+  cursor: pointer;
+  border: none;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.clearBtn:hover:not(:disabled) {
+  color: #991b1b;
+}
+
+.pathList {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.pathItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: monospace;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.pathItem:last-child {
+  border-bottom: none;
+}
+
+.pathText {
+  color: #374151;
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.removeBtn:hover {
+  color: #991b1b;
+}
+
+.startBtn {
+  margin-top: 4px;
+  background: #111827;
+  color: #fff;
+  cursor: pointer;
+  border: 1px solid #111827;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.startBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.startBtn:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.count {
+  background: #e5e7eb;
+  color: #111827;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --version && npm --version)",
+      "Bash(npm create:*)",
+      "Bash(cd /c/Users/53422/Documents/image_search/frontend && npm install 2>&1)",
+      "Bash(cd /c/Users/53422/Documents/image_search/frontend && npx tsc --noEmit 2>&1)",
+      "Bash(npm run:*)",
+      "Bash(cd /c/Users/53422/Documents/image_search && python -m pytest tests/ -v 2>&1)"
+    ]
+  }
+}
