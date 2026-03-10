@@ -32,6 +32,7 @@ def startup() -> None:
 
 
 @app.get("/")
+@app.get("/index.html")
 def index() -> FileResponse:
     return FileResponse(WEB_DIR / "index.html")
 

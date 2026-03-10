@@ -20,6 +20,12 @@ function init() {
   applyModeState();
   els.mode.addEventListener("change", applyModeState);
   els.searchBtn.addEventListener("click", runSearch);
+  els.textQuery.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") runSearch();
+  });
+  els.imagePath.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") runSearch();
+  });
 }
 
 function applyModeState() {
