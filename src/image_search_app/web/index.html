@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agentic Image Search</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>Agentic Image Search</h1>
+        <p>Search with text and/or image path, then review solid matches first and soft matches second.</p>
+      </header>
+
+      <section class="panel">
+        <h2>Search</h2>
+        <div class="grid two">
+          <label>
+            Query mode
+            <select id="queryMode">
+              <option value="text">Text</option>
+              <option value="image">Image</option>
+              <option value="image+text">Image + Text</option>
+            </select>
+          </label>
+          <label>
+            Max results per list
+            <input id="maxResults" type="number" min="1" max="100" />
+          </label>
+        </div>
+
+        <label>
+          Text query
+          <input id="textQuery" type="text" placeholder="find photos with tom in it taken on a beach last year" />
+        </label>
+
+        <label>
+          Image path (for image mode)
+          <input id="imagePath" type="text" placeholder="/workspace/image_search/examples/query.jpg" />
+        </label>
+
+        <div class="grid two">
+          <label>
+            Thumbnail size
+            <select id="thumbSize">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </label>
+          <button id="searchBtn">Run Search</button>
+        </div>
+
+        <p id="status" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Solid Matches <span id="solidCount" class="count">0</span></h2>
+        <div id="solidResults" class="results"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Soft Matches <span id="softCount" class="count">0</span></h2>
+        <div id="softResults" class="results"></div>
+      </section>
+    </main>
+
+    <script src="/static/config.js"></script>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
