@@ -27,8 +27,14 @@ class Captioner:
         import torch
         from transformers import BlipForConditionalGeneration, BlipProcessor
 
-        self._processor = BlipProcessor.from_pretrained(settings.caption_model_name)
-        self._model = BlipForConditionalGeneration.from_pretrained(settings.caption_model_name)
+        model_name = settings.caption_model_name
+        try:
+            self._processor = BlipProcessor.from_pretrained(model_name)
+            self._model = BlipForConditionalGeneration.from_pretrained(model_name)
+        except Exception:
+            # Fall back to cached model if network is unavailable
+            self._processor = BlipProcessor.from_pretrained(model_name, local_files_only=True)
+            self._model = BlipForConditionalGeneration.from_pretrained(model_name, local_files_only=True)
         self._device = "cuda" if torch.cuda.is_available() else "cpu"
         self._model.to(self._device)
         self._model.eval()

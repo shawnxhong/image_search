@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Iterable
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, create_engine, select
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
 from image_search_app.config import settings
@@ -44,6 +44,7 @@ class PersonRecord(Base):
     bbox: Mapped[str] = mapped_column(String, nullable=False)
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     source: Mapped[str] = mapped_column(String, default="auto")
+    dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     image: Mapped[ImageRecord] = relationship(back_populates="people")
 

@@ -55,12 +55,17 @@ class DetectedFace(BaseModel):
     )
     confidence: float = 0.0
     name: str | None = None
+    dismissed: bool = False
 
 
 class IngestResponse(BaseModel):
     image_id: UUID
     file_path: str
     ingestion_status: str
+    caption: str | None = None
+    capture_timestamp: datetime | None = None
+    lat: float | None = None
+    lon: float | None = None
     faces: list[DetectedFace] = Field(default_factory=list)
 
 
@@ -76,6 +81,12 @@ class UpdateFacesRequest(BaseModel):
 class UpdateFacesResponse(BaseModel):
     image_id: UUID
     updated: int
+
+
+class DismissFaceResponse(BaseModel):
+    image_id: str
+    face_id: str
+    dismissed: bool
 
 
 class MatchExplanation(BaseModel):

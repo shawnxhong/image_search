@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
+import cv2
+import numpy as np
 from PIL import Image
 
 
@@ -14,54 +16,46 @@ class FaceDetection:
 
 
 class FaceRecognizer:
-    """Face detection using MediaPipe Face Detection."""
+    """Face detection using OpenCV's Haar cascade classifier."""
 
-    def __init__(self, min_confidence: float = 0.5) -> None:
-        self._detector = None
-        self._min_confidence = min_confidence
+    def __init__(self, scale_factor: float = 1.1, min_neighbors: int = 5) -> None:
+        self._cascade = None
+        self._scale_factor = scale_factor
+        self._min_neighbors = min_neighbors
 
     def _load(self) -> None:
-        if self._detector is not None:
+        if self._cascade is not None:
             return
 
-        import mediapipe as mp
-
-        self._detector = mp.solutions.face_detection.FaceDetection(
-            model_selection=1,  # 1 = full-range model (better for varied distances)
-            min_detection_confidence=self._min_confidence,
-        )
+        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        self._cascade = cv2.CascadeClassifier(cascade_path)
 
     def detect(self, image_path: str) -> list[FaceDetection]:
-        import numpy as np
-
         self._load()
 
         img = Image.open(image_path).convert("RGB")
         img_array = np.array(img)
-        h, w = img_array.shape[:2]
 
-        results = self._detector.process(img_array)
+        # Convert to grayscale for Haar cascade
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+
+        detections = self._cascade.detectMultiScale(
+            gray,
+            scaleFactor=self._scale_factor,
+            minNeighbors=self._min_neighbors,
+            minSize=(30, 30),
+        )
 
         faces: list[FaceDetection] = []
-        if not results.detections:
+        if len(detections) == 0:
             return faces
 
-        for detection in results.detections:
-            bbox_rel = detection.location_data.relative_bounding_box
-
-            # Convert relative bbox to absolute pixel coordinates
-            x_min = max(0, int(bbox_rel.xmin * w))
-            y_min = max(0, int(bbox_rel.ymin * h))
-            x_max = min(w, int((bbox_rel.xmin + bbox_rel.width) * w))
-            y_max = min(h, int((bbox_rel.ymin + bbox_rel.height) * h))
-
-            confidence = detection.score[0] if detection.score else 0.0
-
+        for x, y, w, h in detections:
             faces.append(
                 FaceDetection(
                     face_id=str(uuid4()),
-                    bbox=[x_min, y_min, x_max, y_max],
-                    confidence=round(confidence, 4),
+                    bbox=[int(x), int(y), int(x + w), int(y + h)],
+                    confidence=0.85,  # Haar doesn't provide per-detection confidence
                 )
             )
 

@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     default_top_k: int = 20
     default_timezone: str = "UTC"
     caption_model_name: str = "Salesforce/blip-image-captioning-base"
-    clip_model_name: str = "openai/clip-vit-base-patch32"
-    clip_embedding_dim: int = 512
+    text_embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dim: int = 384
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="IMG_SEARCH_")
 

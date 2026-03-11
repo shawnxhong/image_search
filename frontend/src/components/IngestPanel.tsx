@@ -47,6 +47,10 @@ export default function IngestPanel() {
       file_path: p,
       status: 'pending',
       image_id: null,
+      caption: null,
+      capture_timestamp: null,
+      lat: null,
+      lon: null,
       faces: [],
     }))
     setCards(initial)
@@ -66,6 +70,10 @@ export default function IngestPanel() {
                   ...c,
                   status: result.ingestion_status === 'ready' ? ('ready' as const) : ('failed' as const),
                   image_id: result.image_id,
+                  caption: result.caption,
+                  capture_timestamp: result.capture_timestamp,
+                  lat: result.lat,
+                  lon: result.lon,
                   faces: result.faces,
                 }
               : c,

@@ -28,12 +28,17 @@ export interface DetectedFace {
   bbox: number[]
   confidence: number
   name: string | null
+  dismissed: boolean
 }
 
 export interface IngestResponse {
   image_id: string
   file_path: string
   ingestion_status: string
+  caption: string | null
+  capture_timestamp: string | null
+  lat: number | null
+  lon: number | null
   faces: DetectedFace[]
 }
 
@@ -41,6 +46,10 @@ export interface IngestCardState {
   file_path: string
   status: IngestionStatus
   image_id: string | null
+  caption: string | null
+  capture_timestamp: string | null
+  lat: number | null
+  lon: number | null
   faces: DetectedFace[]
 }
 

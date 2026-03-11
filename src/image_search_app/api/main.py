@@ -9,6 +9,7 @@ from image_search_app.db import ImageRecord, PersonRecord, create_all, get_sessi
 from image_search_app.ingestion.pipeline import IngestionPipeline
 from image_search_app.schemas import (
     DetectedFace,
+    DismissFaceResponse,
     DualListSearchResponse,
     ImageSearchRequest,
     IngestRequest,
@@ -70,15 +71,30 @@ def ingest_image(request: IngestRequest) -> IngestResponse:
     with get_session() as session:
         record = session.query(ImageRecord).filter_by(image_id=image_id).first()
         faces: list[DetectedFace] = []
+        caption = None
+        capture_timestamp = None
+        lat = None
+        lon = None
         if record:
+            caption = record.caption
+            capture_timestamp = record.capture_timestamp
+            lat = record.lat
+            lon = record.lon
             for p in record.people:
                 bbox = list(map(int, p.bbox.split(",")))
-                faces.append(DetectedFace(face_id=p.face_id, bbox=bbox, confidence=p.confidence, name=p.name))
+                faces.append(DetectedFace(
+                    face_id=p.face_id, bbox=bbox, confidence=p.confidence,
+                    name=p.name, dismissed=p.dismissed,
+                ))
 
     return IngestResponse(
         image_id=image_id,
         file_path=request.image_path,
         ingestion_status="ready",
+        caption=caption,
+        capture_timestamp=capture_timestamp,
+        lat=lat,
+        lon=lon,
         faces=faces,
     )
 
@@ -101,6 +117,18 @@ def update_faces(image_id: str, request: UpdateFacesRequest) -> UpdateFacesRespo
         session.commit()
 
     return UpdateFacesResponse(image_id=image_id, updated=updated)
+
+
+@app.put("/images/{image_id}/faces/{face_id}/dismiss", response_model=DismissFaceResponse)
+def dismiss_face(image_id: str, face_id: str) -> DismissFaceResponse:
+    with get_session() as session:
+        person = session.query(PersonRecord).filter_by(image_id=image_id, face_id=face_id).first()
+        if not person:
+            raise HTTPException(status_code=404, detail="Face not found")
+        person.dismissed = True
+        session.commit()
+
+    return DismissFaceResponse(image_id=image_id, face_id=face_id, dismissed=True)
 
 
 @app.get("/browse-images")

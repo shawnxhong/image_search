@@ -35,6 +35,13 @@ def _get_exif_dict(image_path: str) -> dict:
         tag = TAGS.get(tag_id, tag_id)
         exif[tag] = value
 
+    # Decode Exif sub-IFD (contains DateTimeOriginal, etc.)
+    exif_ifd = raw.get_ifd(0x8769)
+    if exif_ifd:
+        for tag_id, value in exif_ifd.items():
+            tag = TAGS.get(tag_id, tag_id)
+            exif[tag] = value
+
     # Decode GPSInfo sub-IFD
     gps_ifd = raw.get_ifd(0x8825)
     if gps_ifd:

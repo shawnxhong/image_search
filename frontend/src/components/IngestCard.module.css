@@ -78,6 +78,35 @@
   color: #991b1b;
 }
 
+/* Metadata section */
+
+.metadataSection {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.metaRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.metaLabel {
+  color: #6b7280;
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 70px;
+}
+
+.metaValue {
+  color: #1f2937;
+  word-break: break-word;
+}
+
+/* Faces section */
+
 .facesSection {
   margin-top: 10px;
   padding-top: 10px;
@@ -87,6 +116,11 @@
 .facesTitle {
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+.dismissedCount {
+  font-weight: 400;
+  color: #9ca3af;
 }
 
 .faceRow {
@@ -132,6 +166,29 @@
 .confidence {
   color: #9ca3af;
   font-size: 11px;
+}
+
+.dismissBtn {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dismissBtn:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.dismissBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .saveBtn {

@@ -73,3 +73,18 @@ export async function updateFaces(
 
   return res.json()
 }
+
+export async function dismissFace(
+  imageId: string,
+  faceId: string,
+): Promise<{ image_id: string; face_id: string; dismissed: boolean }> {
+  const res = await fetch(`/images/${imageId}/faces/${faceId}/dismiss`, {
+    method: 'PUT',
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to dismiss face: ${res.status}`)
+  }
+
+  return res.json()
+}

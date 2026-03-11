@@ -247,3 +247,14 @@ If you want a lean first release:
 - Start Phase 7 with a small manual benchmark.
 
 This still delivers your core behavior: dual-list returns, hard-filter correctness, semantic ranking, and agentic tool selection.
+
+
+1. Ingestion pipeline (EXIF, captioning, face detection, embeddings) — the foundation; nothing works without data
+2. Vector/retrieval layer — real embedding + ChromaDB search
+3. Search tools (intent parser, time parser, hard filters) — query understanding
+4. Search agent orchestration — wiring it all together
+5. Frontend polish — UI refinements if needed
+
+todo:
+- 插入后的插入列表刷新
+- face detection换杨粟的

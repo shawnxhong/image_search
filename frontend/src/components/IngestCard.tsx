@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { IngestCardState, DetectedFace } from '../types'
-import { updateFaces } from '../api'
+import { updateFaces, dismissFace } from '../api'
 import styles from './IngestCard.module.css'
 
 interface IngestCardProps {
@@ -15,6 +15,19 @@ const STATUS_DISPLAY: Record<string, { label: string; className: string }> = {
   failed: { label: 'Failed', className: 'failed' },
 }
 
+function formatTimestamp(ts: string | null): string {
+  if (!ts) return '—'
+  const d = new Date(ts)
+  return d.toLocaleString()
+}
+
+function formatGps(lat: number | null, lon: number | null): string {
+  if (lat == null || lon == null) return '—'
+  const latDir = lat >= 0 ? 'N' : 'S'
+  const lonDir = lon >= 0 ? 'E' : 'W'
+  return `${Math.abs(lat).toFixed(5)}°${latDir}, ${Math.abs(lon).toFixed(5)}°${lonDir}`
+}
+
 export default function IngestCard({ card, onUpdate }: IngestCardProps) {
   const [faceNames, setFaceNames] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
@@ -25,21 +38,23 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [dismissing, setDismissing] = useState<Record<string, boolean>>({})
 
   const statusInfo = STATUS_DISPLAY[card.status] || STATUS_DISPLAY.pending
+  const activeFaces = card.faces.filter((f) => !f.dismissed)
+  const dismissedCount = card.faces.length - activeFaces.length
 
   async function handleSaveNames() {
     if (!card.image_id) return
     setSaving(true)
     setSaved(false)
 
-    const entries = card.faces
+    const entries = activeFaces
       .filter((f) => faceNames[f.face_id]?.trim())
       .map((f) => ({ face_id: f.face_id, name: faceNames[f.face_id].trim() }))
 
     try {
       await updateFaces(card.image_id, entries)
-      // Update face names in parent state
       const updatedFaces: DetectedFace[] = card.faces.map((f) => ({
         ...f,
         name: faceNames[f.face_id]?.trim() || f.name,
@@ -53,9 +68,22 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
     }
   }
 
-  // Update local face names when card.faces changes (e.g. after ingest completes)
-  // This is handled by the useState initializer; for subsequent face data,
-  // we rely on key-based remounting from the parent.
+  async function handleDismiss(faceId: string) {
+    if (!card.image_id) return
+    setDismissing((prev) => ({ ...prev, [faceId]: true }))
+
+    try {
+      await dismissFace(card.image_id, faceId)
+      const updatedFaces: DetectedFace[] = card.faces.map((f) =>
+        f.face_id === faceId ? { ...f, dismissed: true } : f,
+      )
+      onUpdate({ faces: updatedFaces })
+    } catch {
+      // silently fail for demo
+    } finally {
+      setDismissing((prev) => ({ ...prev, [faceId]: false }))
+    }
+  }
 
   return (
     <article className={styles.card}>
@@ -76,10 +104,32 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
         <div className={styles.filePath}>{card.file_path}</div>
         <span className={`${styles.badge} ${styles[statusInfo.className]}`}>{statusInfo.label}</span>
 
-        {card.status === 'ready' && card.faces.length > 0 && (
+        {card.status === 'ready' && (
+          <div className={styles.metadataSection}>
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>Caption</span>
+              <span className={styles.metaValue}>{card.caption || '—'}</span>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>Timestamp</span>
+              <span className={styles.metaValue}>{formatTimestamp(card.capture_timestamp)}</span>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>GPS</span>
+              <span className={styles.metaValue}>{formatGps(card.lat, card.lon)}</span>
+            </div>
+          </div>
+        )}
+
+        {card.status === 'ready' && activeFaces.length > 0 && (
           <div className={styles.facesSection}>
-            <div className={styles.facesTitle}>Faces detected ({card.faces.length})</div>
-            {card.faces.map((face) => (
+            <div className={styles.facesTitle}>
+              Faces detected ({activeFaces.length})
+              {dismissedCount > 0 && (
+                <span className={styles.dismissedCount}> · {dismissedCount} dismissed</span>
+              )}
+            </div>
+            {activeFaces.map((face) => (
               <div key={face.face_id} className={styles.faceRow}>
                 <FaceCrop filePath={card.file_path} bbox={face.bbox} />
                 <div className={styles.faceInfo}>
@@ -94,6 +144,14 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
                   />
                   <span className={styles.confidence}>{(face.confidence * 100).toFixed(0)}% conf</span>
                 </div>
+                <button
+                  className={styles.dismissBtn}
+                  onClick={() => handleDismiss(face.face_id)}
+                  disabled={!!dismissing[face.face_id]}
+                  title="Not a face"
+                >
+                  {dismissing[face.face_id] ? '...' : '✕ Not a face'}
+                </button>
               </div>
             ))}
             <button className={styles.saveBtn} onClick={handleSaveNames} disabled={saving}>
@@ -102,8 +160,11 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
           </div>
         )}
 
-        {card.status === 'ready' && card.faces.length === 0 && (
-          <div className={styles.noFaces}>No faces detected</div>
+        {card.status === 'ready' && activeFaces.length === 0 && (
+          <div className={styles.noFaces}>
+            No faces detected
+            {dismissedCount > 0 && ` (${dismissedCount} dismissed)`}
+          </div>
         )}
       </div>
     </article>
@@ -120,8 +181,6 @@ function FaceCrop({ filePath, bbox }: { filePath: string; bbox: number[] }) {
     return <div className={styles.faceCropPlaceholder} />
   }
 
-  // We use object-fit + object-position via a canvas-like crop approach.
-  // For simplicity, use a container with overflow:hidden and position the full image.
   const displaySize = 48
   const scale = displaySize / Math.max(w, h)
 
