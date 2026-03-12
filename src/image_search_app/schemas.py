@@ -46,6 +46,11 @@ class IngestRequest(BaseModel):
     image_path: str
 
 
+class FaceCandidate(BaseModel):
+    name: str
+    distance: float
+
+
 class DetectedFace(BaseModel):
     face_id: str
     bbox: list[int] = Field(
@@ -56,6 +61,7 @@ class DetectedFace(BaseModel):
     confidence: float = 0.0
     name: str | None = None
     dismissed: bool = False
+    candidates: list[FaceCandidate] = Field(default_factory=list)
 
 
 class IngestResponse(BaseModel):
@@ -67,6 +73,7 @@ class IngestResponse(BaseModel):
     lat: float | None = None
     lon: float | None = None
     faces: list[DetectedFace] = Field(default_factory=list)
+    error: str | None = None
 
 
 class FaceNameEntry(BaseModel):

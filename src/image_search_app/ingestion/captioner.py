@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 
 from PIL import Image
@@ -19,25 +20,34 @@ class Captioner:
     def __init__(self) -> None:
         self._processor = None
         self._model = None
+        self._device = "cpu"
+        self._lock = threading.Lock()
 
     def _load(self) -> None:
         if self._model is not None:
             return
 
-        import torch
-        from transformers import BlipForConditionalGeneration, BlipProcessor
+        with self._lock:
+            # Double-check after acquiring lock
+            if self._model is not None:
+                return
 
-        model_name = settings.caption_model_name
-        try:
-            self._processor = BlipProcessor.from_pretrained(model_name)
-            self._model = BlipForConditionalGeneration.from_pretrained(model_name)
-        except Exception:
-            # Fall back to cached model if network is unavailable
-            self._processor = BlipProcessor.from_pretrained(model_name, local_files_only=True)
-            self._model = BlipForConditionalGeneration.from_pretrained(model_name, local_files_only=True)
-        self._device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._model.to(self._device)
-        self._model.eval()
+            import torch
+            from transformers import BlipForConditionalGeneration, BlipProcessor
+
+            model_name = settings.caption_model_name
+            try:
+                processor = BlipProcessor.from_pretrained(model_name)
+                model = BlipForConditionalGeneration.from_pretrained(model_name)
+            except Exception:
+                # Fall back to cached model if network is unavailable
+                processor = BlipProcessor.from_pretrained(model_name, local_files_only=True)
+                model = BlipForConditionalGeneration.from_pretrained(model_name, local_files_only=True)
+            self._device = "cuda" if torch.cuda.is_available() else "cpu"
+            model.to(self._device)
+            model.eval()
+            self._processor = processor
+            self._model = model
 
     def generate(self, image_path: str) -> CaptionResult:
         import torch

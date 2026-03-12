@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import select
 
-from image_search_app.db import ImageRecord, PersonRecord, get_session, upsert_image
+from image_search_app.config import settings
+from image_search_app.db import ImageRecord, PersonRecord, get_session
 from image_search_app.ingestion.captioner import Captioner
 from image_search_app.ingestion.exif import extract_exif
 from image_search_app.ingestion.faces import FaceRecognizer
@@ -26,86 +28,154 @@ class IngestionPipeline:
     def ingest(self, image_path: str) -> str:
         """Run the full ingestion pipeline for a single image.
 
-        Steps:
-        1. Validate file exists
-        2. Upsert image record in DB
-        3. Extract EXIF (timestamp, GPS)
-        4. Generate caption via BLIP
-        5. Detect faces via MediaPipe
-        6. Generate CLIP embeddings (caption + image)
-        7. Index embeddings in ChromaDB
-        8. Mark as ready
+        ML inference (captioning, face detection, embeddings) runs outside
+        any DB session so the SQLite lock is not held during slow work.
+        A short DB session is opened only at the end to persist results.
 
-        Raises on unrecoverable errors; the API layer catches and returns 'failed'.
+        Returns the image_id on success, raises on failure.
         """
-        # 1. Validate
         path = Path(image_path)
         if not path.exists():
             raise FileNotFoundError(f"Image not found: {image_path}")
 
-        # 2. Upsert DB record
-        image = upsert_image(str(path))
+        path_str = str(path)
 
+        # --- Phase 0: skip if already fully ingested ---
+        with get_session() as session:
+            existing = session.scalar(
+                select(ImageRecord).where(ImageRecord.file_path == path_str)
+            )
+            if existing and existing.ingestion_status in ("ready", "pending_labels"):
+                logger.info("Already ingested, skipping: %s", existing.image_id)
+                return existing.image_id
+
+        # --- Phase 1: quick DB upsert to get an image_id ---
         with get_session() as session:
             record = session.scalar(
-                select(ImageRecord).where(ImageRecord.image_id == image.image_id)
+                select(ImageRecord).where(ImageRecord.file_path == path_str)
             )
             if record is None:
-                raise ValueError("Image was not persisted")
-
-            try:
-                # 3. EXIF extraction
-                exif = extract_exif(str(path))
-                record.capture_timestamp = exif.capture_timestamp
-                record.lat = exif.lat
-                record.lon = exif.lon
-                record.geo_confidence = exif.geo_confidence
-                record.ingestion_status = "exif_extracted"
-                logger.info("EXIF extracted for %s", image.image_id)
-
-                # 4. Caption generation
-                caption_result = self.captioner.generate(str(path))
-                record.caption = caption_result.caption
-                record.caption_confidence = caption_result.confidence
-                record.ingestion_status = "captioned"
-                logger.info("Caption generated for %s: %s", image.image_id, caption_result.caption)
-
-                # 5. Face detection
-                faces = self.face_recognizer.detect(str(path))
-                for face in faces:
-                    session.add(
-                        PersonRecord(
-                            image_id=record.image_id,
-                            name=None,
-                            face_id=face.face_id,
-                            bbox=",".join(map(str, face.bbox)),
-                            confidence=face.confidence,
-                            source="auto",
-                        )
-                    )
-                record.face_confidence = max((f.confidence for f in faces), default=0.0)
-                record.ingestion_status = "faces_detected"
-                logger.info("Detected %d face(s) for %s", len(faces), image.image_id)
-
-                # 6-7. Embeddings + indexing
-                caption_embedding = self.embeddings.embed_text(record.caption or "")
-                image_embedding = self.embeddings.embed_image(str(path))
-                self.store.upsert_caption_embedding(
-                    record.image_id, caption_embedding, record.caption
-                )
-                self.store.upsert_image_embedding(record.image_id, image_embedding)
-
-                now = datetime.now(timezone.utc)
-                record.caption_indexed_at = now
-                record.image_indexed_at = now
-                record.embedding_model_version = "clip-vit-base-patch32"
-                record.ingestion_status = "ready"
-                logger.info("Ingestion complete for %s", image.image_id)
-
-            except Exception:
-                record.ingestion_status = "failed"
+                record = ImageRecord(file_path=path_str, ingestion_status="processing")
+                session.add(record)
                 session.commit()
-                raise
+                session.refresh(record)
+            else:
+                record.ingestion_status = "processing"
+                session.commit()
+            image_id = record.image_id
+
+        # --- Phase 2: slow ML work (no DB session held) ---
+        try:
+            exif = extract_exif(path_str)
+            logger.info("EXIF extracted for %s", image_id)
+
+            caption_result = self.captioner.generate(path_str)
+            logger.info("Caption generated for %s: %s", image_id, caption_result.caption)
+
+            faces = self.face_recognizer.detect(path_str)
+            logger.info("Detected %d face(s) for %s", len(faces), image_id)
+
+            # Try to match each face against known identities
+            for face in faces:
+                if face.descriptor:
+                    candidates = self.store.match_face_candidates(
+                        face.descriptor, top_k=3, threshold=0.8,
+                    )
+                    face.candidates = candidates  # [(name, distance), ...]
+                    # Auto-assign if top match is confident enough
+                    if candidates and candidates[0][1] < settings.face_identity_threshold:
+                        face.matched_name = candidates[0][0]
+                        logger.info(
+                            "Auto-matched face %s to '%s' (dist=%.3f) for %s",
+                            face.face_id, candidates[0][0], candidates[0][1], image_id,
+                        )
+                    else:
+                        face.matched_name = None
+                else:
+                    face.candidates = []
+                    face.matched_name = None
+
+            caption_embedding = self.embeddings.embed_text(caption_result.caption or "")
+            image_embedding = self.embeddings.embed_image(path_str)
+
+            # ChromaDB upserts are idempotent — safe even if DB write below fails
+            self.store.upsert_caption_embedding(
+                image_id, caption_embedding, caption_result.caption
+            )
+            self.store.upsert_image_embedding(image_id, image_embedding)
+
+        except Exception as exc:
+            # Mark as failed in DB
+            try:
+                with get_session() as session:
+                    rec = session.scalar(
+                        select(ImageRecord).where(ImageRecord.image_id == image_id)
+                    )
+                    if rec:
+                        rec.ingestion_status = "failed"
+                        session.commit()
+            except Exception:
+                pass
+            logger.error("Ingestion failed for %s: %s", image_path, exc)
+            raise
+
+        # --- Phase 3: short DB write to persist all results ---
+        has_unlabeled_faces = False
+        with get_session() as session:
+            record = session.scalar(
+                select(ImageRecord).where(ImageRecord.image_id == image_id)
+            )
+            if record is None:
+                raise ValueError(f"Image record disappeared for {image_id}")
+
+            # Clear old faces on re-ingest
+            for person in list(record.people):
+                session.delete(person)
+
+            record.capture_timestamp = exif.capture_timestamp
+            record.lat = exif.lat
+            record.lon = exif.lon
+            record.geo_confidence = exif.geo_confidence
+            record.caption = caption_result.caption
+            record.caption_confidence = caption_result.confidence
+            record.face_confidence = max((f.confidence for f in faces), default=0.0)
+
+            for face in faces:
+                matched_name = getattr(face, "matched_name", None)
+                candidates = getattr(face, "candidates", [])
+                source = "auto_matched" if matched_name else "auto"
+                # Store candidates as JSON: [{"name": "...", "distance": 0.xx}, ...]
+                candidates_json = json.dumps(
+                    [{"name": n, "distance": round(d, 4)} for n, d in candidates]
+                ) if candidates else None
+                session.add(
+                    PersonRecord(
+                        image_id=image_id,
+                        name=matched_name,
+                        face_id=face.face_id,
+                        bbox=",".join(map(str, face.bbox)),
+                        confidence=face.confidence,
+                        source=source,
+                        descriptor=json.dumps(face.descriptor) if face.descriptor else None,
+                        candidates=candidates_json,
+                    )
+                )
+                if not matched_name:
+                    has_unlabeled_faces = True
+
+            now = datetime.now(timezone.utc)
+            record.caption_indexed_at = now
+            record.image_indexed_at = now
+            record.embedding_model_version = "all-MiniLM-L6-v2"
+
+            # Set status based on whether there are unlabeled faces
+            if has_unlabeled_faces:
+                record.ingestion_status = "pending_labels"
+            else:
+                record.ingestion_status = "ready"
 
             session.commit()
-            return record.image_id
+
+        logger.info("Ingestion complete for %s (status=%s)",
+                     image_id, "pending_labels" if has_unlabeled_faces else "ready")
+        return image_id

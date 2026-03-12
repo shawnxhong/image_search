@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 from image_search_app.config import settings
 
 
@@ -13,18 +15,25 @@ class EmbeddingService:
 
     def __init__(self) -> None:
         self._model = None
+        self._lock = threading.Lock()
 
     def _load(self) -> None:
         if self._model is not None:
             return
 
-        from sentence_transformers import SentenceTransformer
+        with self._lock:
+            # Double-check after acquiring lock
+            if self._model is not None:
+                return
 
-        model_name = settings.text_embedding_model_name
-        try:
-            self._model = SentenceTransformer(model_name)
-        except Exception:
-            self._model = SentenceTransformer(model_name, local_files_only=True)
+            from sentence_transformers import SentenceTransformer
+
+            model_name = settings.text_embedding_model_name
+            try:
+                model = SentenceTransformer(model_name)
+            except Exception:
+                model = SentenceTransformer(model_name, local_files_only=True)
+            self._model = model
 
     def embed_text(self, text: str) -> list[float]:
         self._load()

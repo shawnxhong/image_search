@@ -12,6 +12,7 @@ const STATUS_DISPLAY: Record<string, { label: string; className: string }> = {
   pending: { label: 'Pending', className: 'pending' },
   processing: { label: 'Processing...', className: 'processing' },
   ready: { label: 'Ready', className: 'ready' },
+  pending_labels: { label: 'Needs Labels', className: 'pendingLabels' },
   failed: { label: 'Failed', className: 'failed' },
 }
 
@@ -36,6 +37,7 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
     }
     return initial
   })
+  const [customInput, setCustomInput] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [dismissing, setDismissing] = useState<Record<string, boolean>>({})
@@ -43,6 +45,16 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
   const statusInfo = STATUS_DISPLAY[card.status] || STATUS_DISPLAY.pending
   const activeFaces = card.faces.filter((f) => !f.dismissed)
   const dismissedCount = card.faces.length - activeFaces.length
+
+  function handlePickCandidate(faceId: string, name: string) {
+    setFaceNames((prev) => ({ ...prev, [faceId]: name }))
+    setCustomInput((prev) => ({ ...prev, [faceId]: false }))
+  }
+
+  function handleShowCustomInput(faceId: string) {
+    setCustomInput((prev) => ({ ...prev, [faceId]: true }))
+    setFaceNames((prev) => ({ ...prev, [faceId]: '' }))
+  }
 
   async function handleSaveNames() {
     if (!card.image_id) return
@@ -85,9 +97,12 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
     }
   }
 
+  const showDetails = card.status === 'ready' || card.status === 'pending_labels'
+  const showThumb = showDetails || card.status === 'failed'
+
   return (
     <article className={styles.card}>
-      {card.status === 'ready' || card.status === 'failed' ? (
+      {showThumb ? (
         <img
           className={styles.thumb}
           src={`/image-preview?path=${encodeURIComponent(card.file_path)}`}
@@ -104,7 +119,11 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
         <div className={styles.filePath}>{card.file_path}</div>
         <span className={`${styles.badge} ${styles[statusInfo.className]}`}>{statusInfo.label}</span>
 
-        {card.status === 'ready' && (
+        {card.status === 'failed' && card.error && (
+          <div className={styles.errorMsg}>{card.error}</div>
+        )}
+
+        {showDetails && (
           <div className={styles.metadataSection}>
             <div className={styles.metaRow}>
               <span className={styles.metaLabel}>Caption</span>
@@ -121,7 +140,7 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
           </div>
         )}
 
-        {card.status === 'ready' && activeFaces.length > 0 && (
+        {showDetails && activeFaces.length > 0 && (
           <div className={styles.facesSection}>
             <div className={styles.facesTitle}>
               Faces detected ({activeFaces.length})
@@ -133,34 +152,43 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
               <div key={face.face_id} className={styles.faceRow}>
                 <FaceCrop filePath={card.file_path} bbox={face.bbox} />
                 <div className={styles.faceInfo}>
-                  <input
-                    className={styles.nameInput}
-                    type="text"
-                    placeholder="Name this person"
-                    value={faceNames[face.face_id] || ''}
-                    onChange={(e) =>
-                      setFaceNames((prev) => ({ ...prev, [face.face_id]: e.target.value }))
-                    }
-                  />
+                  {face.name ? (
+                    <span className={styles.matchedName}>{face.name}</span>
+                  ) : (
+                    <FaceNamePicker
+                      face={face}
+                      value={faceNames[face.face_id] || ''}
+                      showCustom={!!customInput[face.face_id]}
+                      onPick={(name) => handlePickCandidate(face.face_id, name)}
+                      onCustom={() => handleShowCustomInput(face.face_id)}
+                      onChange={(val) =>
+                        setFaceNames((prev) => ({ ...prev, [face.face_id]: val }))
+                      }
+                    />
+                  )}
                   <span className={styles.confidence}>{(face.confidence * 100).toFixed(0)}% conf</span>
                 </div>
-                <button
-                  className={styles.dismissBtn}
-                  onClick={() => handleDismiss(face.face_id)}
-                  disabled={!!dismissing[face.face_id]}
-                  title="Not a face"
-                >
-                  {dismissing[face.face_id] ? '...' : '✕ Not a face'}
-                </button>
+                {!face.name && (
+                  <button
+                    className={styles.dismissBtn}
+                    onClick={() => handleDismiss(face.face_id)}
+                    disabled={!!dismissing[face.face_id]}
+                    title="Not a face"
+                  >
+                    {dismissing[face.face_id] ? '...' : '✕ Not a face'}
+                  </button>
+                )}
               </div>
             ))}
-            <button className={styles.saveBtn} onClick={handleSaveNames} disabled={saving}>
-              {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Names'}
-            </button>
+            {activeFaces.some((f) => !f.name) && (
+              <button className={styles.saveBtn} onClick={handleSaveNames} disabled={saving}>
+                {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Names'}
+              </button>
+            )}
           </div>
         )}
 
-        {card.status === 'ready' && activeFaces.length === 0 && (
+        {showDetails && activeFaces.length === 0 && (
           <div className={styles.noFaces}>
             No faces detected
             {dismissedCount > 0 && ` (${dismissedCount} dismissed)`}
@@ -168,6 +196,83 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
         )}
       </div>
     </article>
+  )
+}
+
+/** Shows candidate buttons if available, otherwise a text input. */
+function FaceNamePicker({
+  face,
+  value,
+  showCustom,
+  onPick,
+  onCustom,
+  onChange,
+}: {
+  face: DetectedFace
+  value: string
+  showCustom: boolean
+  onPick: (name: string) => void
+  onCustom: () => void
+  onChange: (val: string) => void
+}) {
+  const candidates = face.candidates || []
+  const hasCandidates = candidates.length > 0
+
+  // If user picked a candidate, show it as selected
+  if (value && !showCustom && hasCandidates) {
+    return (
+      <div className={styles.pickedRow}>
+        <span className={styles.pickedName}>{value}</span>
+        <button className={styles.changeBtn} onClick={onCustom} type="button">
+          change
+        </button>
+      </div>
+    )
+  }
+
+  // Show custom input if: no candidates, user clicked "Other", or showCustom
+  if (!hasCandidates || showCustom) {
+    return (
+      <div>
+        <input
+          className={styles.nameInput}
+          type="text"
+          placeholder="Name this person"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {hasCandidates && (
+          <button
+            className={styles.backBtn}
+            onClick={() => onPick('')}
+            type="button"
+          >
+            back to suggestions
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // Show candidate buttons
+  return (
+    <div className={styles.candidateList}>
+      {candidates.map((c) => (
+        <button
+          key={c.name}
+          className={styles.candidateBtn}
+          onClick={() => onPick(c.name)}
+          type="button"
+          title={`Similarity: ${((1 - c.distance) * 100).toFixed(0)}%`}
+        >
+          {c.name}
+          <span className={styles.candidatePct}>{((1 - c.distance) * 100).toFixed(0)}%</span>
+        </button>
+      ))}
+      <button className={styles.candidateOther} onClick={onCustom} type="button">
+        Other...
+      </button>
+    </div>
   )
 }
 

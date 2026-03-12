@@ -255,6 +255,6 @@ This still delivers your core behavior: dual-list returns, hard-filter correctne
 4. Search agent orchestration — wiring it all together
 5. Frontend polish — UI refinements if needed
 
+---
 todo:
-- 插入后的插入列表刷新
-- face detection换杨粟的
+# no other button makde

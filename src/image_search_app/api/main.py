@@ -4,13 +4,20 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+import json
+import logging
+
 from image_search_app.agent.graph import SearchAgent
 from image_search_app.db import ImageRecord, PersonRecord, create_all, get_session
 from image_search_app.ingestion.pipeline import IngestionPipeline
+from image_search_app.vector.chroma_store import ChromaStore
+
+logger = logging.getLogger(__name__)
 from image_search_app.schemas import (
     DetectedFace,
     DismissFaceResponse,
     DualListSearchResponse,
+    FaceCandidate,
     ImageSearchRequest,
     IngestRequest,
     IngestResponse,
@@ -23,6 +30,7 @@ app = FastAPI(title="Agentic Image Search")
 
 agent = SearchAgent()
 ingestion = IngestionPipeline()
+face_store = ChromaStore()
 
 # React build output (npm run build in frontend/)
 FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist"
@@ -61,11 +69,21 @@ def image_preview(path: str = Query(..., description="Absolute or repo-relative 
 def ingest_image(request: IngestRequest) -> IngestResponse:
     try:
         image_id = ingestion.ingest(request.image_path)
-    except Exception:
+    except FileNotFoundError as exc:
+        logger.warning("Ingest file not found: %s", exc)
         return IngestResponse(
             image_id="00000000-0000-0000-0000-000000000000",
             file_path=request.image_path,
             ingestion_status="failed",
+            error=str(exc),
+        )
+    except Exception as exc:
+        logger.exception("Ingest failed for %s", request.image_path)
+        return IngestResponse(
+            image_id="00000000-0000-0000-0000-000000000000",
+            file_path=request.image_path,
+            ingestion_status="failed",
+            error=f"{type(exc).__name__}: {exc}",
         )
 
     with get_session() as session:
@@ -75,22 +93,31 @@ def ingest_image(request: IngestRequest) -> IngestResponse:
         capture_timestamp = None
         lat = None
         lon = None
+        status = "ready"
         if record:
             caption = record.caption
             capture_timestamp = record.capture_timestamp
             lat = record.lat
             lon = record.lon
+            status = record.ingestion_status
             for p in record.people:
                 bbox = list(map(int, p.bbox.split(",")))
+                candidates: list[FaceCandidate] = []
+                if p.candidates:
+                    try:
+                        for c in json.loads(p.candidates):
+                            candidates.append(FaceCandidate(name=c["name"], distance=c["distance"]))
+                    except Exception:
+                        pass
                 faces.append(DetectedFace(
                     face_id=p.face_id, bbox=bbox, confidence=p.confidence,
-                    name=p.name, dismissed=p.dismissed,
+                    name=p.name, dismissed=p.dismissed, candidates=candidates,
                 ))
 
     return IngestResponse(
         image_id=image_id,
         file_path=request.image_path,
-        ingestion_status="ready",
+        ingestion_status=status,
         caption=caption,
         capture_timestamp=capture_timestamp,
         lat=lat,
@@ -114,6 +141,23 @@ def update_faces(image_id: str, request: UpdateFacesRequest) -> UpdateFacesRespo
                 person.source = "user_tag"
                 updated += 1
 
+                # Store face embedding as ground truth for this person
+                if person.descriptor:
+                    try:
+                        descriptor = json.loads(person.descriptor)
+                        face_store.upsert_face_identity(person.face_id, descriptor, entry.name)
+                        logger.info("Stored face identity for '%s' (face_id=%s)", entry.name, person.face_id)
+                    except Exception as exc:
+                        logger.warning("Failed to store face identity: %s", exc)
+
+        # Check if all non-dismissed faces now have names
+        all_labeled = all(
+            p.name or p.dismissed
+            for p in record.people
+        )
+        if all_labeled and record.ingestion_status == "pending_labels":
+            record.ingestion_status = "ready"
+
         session.commit()
 
     return UpdateFacesResponse(image_id=image_id, updated=updated)
@@ -126,6 +170,14 @@ def dismiss_face(image_id: str, face_id: str) -> DismissFaceResponse:
         if not person:
             raise HTTPException(status_code=404, detail="Face not found")
         person.dismissed = True
+
+        # Check if all faces are now resolved (named or dismissed)
+        record = session.query(ImageRecord).filter_by(image_id=image_id).first()
+        if record and record.ingestion_status == "pending_labels":
+            all_resolved = all(p.name or p.dismissed for p in record.people)
+            if all_resolved:
+                record.ingestion_status = "ready"
+
         session.commit()
 
     return DismissFaceResponse(image_id=image_id, face_id=face_id, dismissed=True)

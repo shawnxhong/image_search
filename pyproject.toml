@@ -20,6 +20,7 @@ dependencies = [
   "transformers>=4.36.0",
   "sentence-transformers>=2.2.0",
   "opencv-python>=4.8.0",
+  "openvino>=2024.0.0",
 ]
 
 [project.optional-dependencies]

@@ -21,7 +21,12 @@ export interface SearchResponse {
 
 // Ingestion types
 
-export type IngestionStatus = 'pending' | 'processing' | 'ready' | 'failed'
+export type IngestionStatus = 'pending' | 'processing' | 'ready' | 'pending_labels' | 'failed'
+
+export interface FaceCandidate {
+  name: string
+  distance: number
+}
 
 export interface DetectedFace {
   face_id: string
@@ -29,6 +34,7 @@ export interface DetectedFace {
   confidence: number
   name: string | null
   dismissed: boolean
+  candidates: FaceCandidate[]
 }
 
 export interface IngestResponse {
@@ -40,6 +46,7 @@ export interface IngestResponse {
   lat: number | null
   lon: number | null
   faces: DetectedFace[]
+  error: string | null
 }
 
 export interface IngestCardState {
@@ -51,6 +58,7 @@ export interface IngestCardState {
   lat: number | null
   lon: number | null
   faces: DetectedFace[]
+  error: string | null
 }
 
 export interface UpdateFacesResponse {

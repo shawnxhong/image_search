@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Iterable
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, create_engine, select
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
 from image_search_app.config import settings
@@ -45,11 +45,28 @@ class PersonRecord(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     source: Mapped[str] = mapped_column(String, default="auto")
     dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
+    descriptor: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON-encoded face embedding
+    candidates: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: [{"name": "...", "distance": 0.xx}]
 
     image: Mapped[ImageRecord] = relationship(back_populates="people")
 
 
-engine = create_engine(settings.sqlite_url, future=True)
+from sqlalchemy import event as sa_event
+
+engine = create_engine(
+    settings.sqlite_url,
+    future=True,
+    connect_args={"timeout": 30},  # SQLite busy timeout in seconds
+)
+
+
+@sa_event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_conn, connection_record):
+    """Enable WAL mode and busy timeout for concurrent access."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=30000")
+    cursor.close()
 
 
 def create_all() -> None:

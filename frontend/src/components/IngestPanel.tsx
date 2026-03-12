@@ -52,6 +52,7 @@ export default function IngestPanel() {
       lat: null,
       lon: null,
       faces: [],
+      error: null,
     }))
     setCards(initial)
     setRunning(true)
@@ -68,20 +69,28 @@ export default function IngestPanel() {
             i === index
               ? {
                   ...c,
-                  status: result.ingestion_status === 'ready' ? ('ready' as const) : ('failed' as const),
+                  status:
+                    result.ingestion_status === 'ready'
+                      ? ('ready' as const)
+                      : result.ingestion_status === 'pending_labels'
+                        ? ('pending_labels' as const)
+                        : ('failed' as const),
                   image_id: result.image_id,
                   caption: result.caption,
                   capture_timestamp: result.capture_timestamp,
                   lat: result.lat,
                   lon: result.lon,
                   faces: result.faces,
+                  error: result.error,
                 }
               : c,
           ),
         )
       } catch {
         setCards((prev) =>
-          prev.map((c, i) => (i === index ? { ...c, status: 'failed' as const } : c)),
+          prev.map((c, i) =>
+            i === index ? { ...c, status: 'failed' as const, error: 'Network error or server unreachable' } : c,
+          ),
         )
       }
     })
@@ -136,7 +145,7 @@ export default function IngestPanel() {
           <h2>
             Ingestion Results{' '}
             <span className={styles.count}>
-              {cards.filter((c) => c.status === 'ready').length}/{cards.length}
+              {cards.filter((c) => c.status === 'ready' || c.status === 'pending_labels').length}/{cards.length}
             </span>
           </h2>
           <div className={styles.cardGrid}>

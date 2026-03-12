@@ -73,9 +73,25 @@
   color: #065f46;
 }
 
+.pendingLabels {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .failed {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.errorMsg {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 12px;
+  word-break: break-word;
 }
 
 /* Metadata section */
@@ -163,6 +179,12 @@
   width: 100%;
 }
 
+.matchedName {
+  font-weight: 600;
+  color: #065f46;
+  font-size: 13px;
+}
+
 .confidence {
   color: #9ca3af;
   font-size: 11px;
@@ -209,6 +231,98 @@
 
 .saveBtn:hover:not(:disabled) {
   background: #1f2937;
+}
+
+/* Candidate picker */
+
+.candidateList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.candidateBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #1e40af;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.candidateBtn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.candidatePct {
+  font-size: 10px;
+  color: #60a5fa;
+  font-weight: 500;
+}
+
+.candidateOther {
+  display: inline-flex;
+  align-items: center;
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.candidateOther:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.pickedRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pickedName {
+  font-weight: 600;
+  color: #1e40af;
+  font-size: 13px;
+}
+
+.changeBtn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.changeBtn:hover {
+  color: #6b7280;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 0 0 0;
+  display: block;
+}
+
+.backBtn:hover {
+  color: #6b7280;
 }
 
 .noFaces {
