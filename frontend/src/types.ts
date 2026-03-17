@@ -64,4 +64,46 @@ export interface IngestCardState {
 export interface UpdateFacesResponse {
   image_id: string
   updated: number
+  caption: string | null
+  ingestion_status: string | null
+}
+
+// LLM lifecycle types
+
+export interface LLMStatus {
+  loaded: boolean
+  model_path: string | null
+  model_name: string | null
+  device: string | null
+}
+
+export interface LLMAvailable {
+  models: string[]
+  devices: string[]
+}
+
+// Unified model status types
+
+export interface ModelServiceStatus {
+  loaded: boolean
+  name: string
+}
+
+export interface AllModelsStatus {
+  llm: LLMStatus
+  vlm: ModelServiceStatus
+  embeddings: ModelServiceStatus
+  face_detection: ModelServiceStatus
+}
+
+// Agent step types
+
+export type AgentStepType = 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error'
+
+export interface AgentStep {
+  step_type: AgentStepType
+  tool_name: string | null
+  tool_args: Record<string, unknown> | null
+  result_count: number | null
+  message: string
 }

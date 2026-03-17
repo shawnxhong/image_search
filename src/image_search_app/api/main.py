@@ -1,19 +1,22 @@
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 import json
 import logging
 
 from image_search_app.agent.graph import SearchAgent
+from image_search_app.config import settings
 from image_search_app.db import ImageRecord, PersonRecord, create_all, get_session
 from image_search_app.ingestion.pipeline import IngestionPipeline
+from image_search_app.tools.llm import get_llm_service, scan_available_models
 from image_search_app.vector.chroma_store import ChromaStore
 
 logger = logging.getLogger(__name__)
 from image_search_app.schemas import (
+    AgentStep,
     DetectedFace,
     DismissFaceResponse,
     DualListSearchResponse,
@@ -21,6 +24,9 @@ from image_search_app.schemas import (
     ImageSearchRequest,
     IngestRequest,
     IngestResponse,
+    LLMAvailableResponse,
+    LLMLoadRequest,
+    LLMStatusResponse,
     TextSearchRequest,
     UpdateFacesRequest,
     UpdateFacesResponse,
@@ -128,6 +134,7 @@ def ingest_image(request: IngestRequest) -> IngestResponse:
 
 @app.put("/images/{image_id}/faces", response_model=UpdateFacesResponse)
 def update_faces(image_id: str, request: UpdateFacesRequest) -> UpdateFacesResponse:
+    should_refine = False
     with get_session() as session:
         record = session.query(ImageRecord).filter_by(image_id=image_id).first()
         if not record:
@@ -156,15 +163,31 @@ def update_faces(image_id: str, request: UpdateFacesRequest) -> UpdateFacesRespo
             for p in record.people
         )
         if all_labeled and record.ingestion_status == "pending_labels":
-            record.ingestion_status = "ready"
+            record.ingestion_status = "refining_caption"
+            should_refine = True
 
         session.commit()
 
-    return UpdateFacesResponse(image_id=image_id, updated=updated)
+    # Refine caption with person names after all faces are resolved
+    new_caption = None
+    final_status = None
+    if should_refine:
+        try:
+            new_caption = ingestion.refine_after_labeling(image_id)
+        except Exception as exc:
+            logger.exception("Caption refinement failed for %s: %s", image_id, exc)
+        # Read final status after refinement
+        with get_session() as session:
+            rec = session.query(ImageRecord).filter_by(image_id=image_id).first()
+            if rec:
+                final_status = rec.ingestion_status
+
+    return UpdateFacesResponse(image_id=image_id, updated=updated, caption=new_caption, ingestion_status=final_status)
 
 
 @app.put("/images/{image_id}/faces/{face_id}/dismiss", response_model=DismissFaceResponse)
 def dismiss_face(image_id: str, face_id: str) -> DismissFaceResponse:
+    should_refine = False
     with get_session() as session:
         person = session.query(PersonRecord).filter_by(image_id=image_id, face_id=face_id).first()
         if not person:
@@ -176,11 +199,27 @@ def dismiss_face(image_id: str, face_id: str) -> DismissFaceResponse:
         if record and record.ingestion_status == "pending_labels":
             all_resolved = all(p.name or p.dismissed for p in record.people)
             if all_resolved:
-                record.ingestion_status = "ready"
+                record.ingestion_status = "refining_caption"
+                should_refine = True
 
         session.commit()
 
-    return DismissFaceResponse(image_id=image_id, face_id=face_id, dismissed=True)
+    new_caption = None
+    final_status = None
+    if should_refine:
+        try:
+            new_caption = ingestion.refine_after_labeling(image_id)
+        except Exception as exc:
+            logger.exception("Caption refinement failed for %s: %s", image_id, exc)
+        with get_session() as session:
+            rec = session.query(ImageRecord).filter_by(image_id=image_id).first()
+            if rec:
+                final_status = rec.ingestion_status
+
+    return DismissFaceResponse(
+        image_id=image_id, face_id=face_id, dismissed=True,
+        caption=new_caption, ingestion_status=final_status,
+    )
 
 
 @app.get("/browse-images")
@@ -200,9 +239,124 @@ def browse_images() -> dict[str, list[str]]:
     return {"paths": list(paths)}
 
 
+@app.get("/llm/status", response_model=LLMStatusResponse)
+def llm_status() -> LLMStatusResponse:
+    llm = get_llm_service()
+    return LLMStatusResponse(**llm.status())
+
+
+@app.get("/llm/available", response_model=LLMAvailableResponse)
+def llm_available() -> LLMAvailableResponse:
+    models = scan_available_models()
+    return LLMAvailableResponse(models=models, devices=["CPU", "GPU"])
+
+
+@app.post("/llm/load", response_model=LLMStatusResponse)
+def llm_load(request: LLMLoadRequest) -> LLMStatusResponse:
+    from pathlib import Path as P
+
+    base = P(settings.llm_models_dir)
+    if not base.is_absolute():
+        base = P(__file__).resolve().parent.parent.parent.parent / base
+    model_path = str(base / request.model_name)
+    llm = get_llm_service()
+    try:
+        llm.load(model_path=model_path, device=request.device)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load LLM: {exc}")
+    return LLMStatusResponse(**llm.status())
+
+
+@app.post("/llm/unload", response_model=LLMStatusResponse)
+def llm_unload() -> LLMStatusResponse:
+    llm = get_llm_service()
+    llm.unload()
+    return LLMStatusResponse(**llm.status())
+
+
+@app.get("/models/status")
+def models_status() -> dict:
+    """Return load status of all model services."""
+    llm = get_llm_service()
+    return {
+        "llm": llm.status(),
+        "vlm": ingestion.captioner.status(),
+        "embeddings": ingestion.embeddings.status(),
+        "face_detection": ingestion.face_recognizer.status(),
+    }
+
+
+@app.post("/models/{name}/load")
+def model_load(name: str) -> dict:
+    """Load a specific model service."""
+    if name == "llm":
+        llm = get_llm_service()
+        try:
+            llm.load()
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+        return llm.status()
+    elif name == "vlm":
+        try:
+            ingestion.captioner._load()
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+        return ingestion.captioner.status()
+    elif name == "embeddings":
+        try:
+            ingestion.embeddings._load()
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+        return ingestion.embeddings.status()
+    elif name == "face_detection":
+        try:
+            ingestion.face_recognizer._load()
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+        return ingestion.face_recognizer.status()
+    else:
+        raise HTTPException(status_code=404, detail=f"Unknown model: {name}")
+
+
+@app.post("/models/{name}/unload")
+def model_unload(name: str) -> dict:
+    """Unload a specific model service."""
+    if name == "llm":
+        llm = get_llm_service()
+        llm.unload()
+        return llm.status()
+    elif name == "vlm":
+        ingestion.captioner.unload()
+        return ingestion.captioner.status()
+    elif name == "embeddings":
+        ingestion.embeddings.unload()
+        return ingestion.embeddings.status()
+    elif name == "face_detection":
+        ingestion.face_recognizer.unload()
+        return ingestion.face_recognizer.status()
+    else:
+        raise HTTPException(status_code=404, detail=f"Unknown model: {name}")
+
+
 @app.post("/search/text", response_model=DualListSearchResponse)
 def search_text(request: TextSearchRequest) -> DualListSearchResponse:
     return agent.search_text(request.query, top_k=request.top_k)
+
+
+@app.post("/search/text/stream")
+def search_text_stream(request: TextSearchRequest) -> StreamingResponse:
+    def event_generator():
+        for item in agent.search_text_stream(request.query, top_k=request.top_k):
+            if isinstance(item, AgentStep):
+                yield f"event: step\ndata: {item.model_dump_json()}\n\n"
+            elif isinstance(item, DualListSearchResponse):
+                yield f"event: result\ndata: {item.model_dump_json()}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/search/image", response_model=DualListSearchResponse)

@@ -13,8 +13,14 @@ class ChromaStore:
         image_collection: str | None = None,
     ) -> None:
         self.client = chromadb.PersistentClient(path=path or settings.chroma_path)
-        self.caption_collection = self.client.get_or_create_collection(caption_collection or settings.caption_collection)
-        self.image_collection = self.client.get_or_create_collection(image_collection or settings.image_collection)
+        self.caption_collection = self.client.get_or_create_collection(
+            caption_collection or settings.caption_collection,
+            metadata={"hnsw:space": "cosine"},
+        )
+        self.image_collection = self.client.get_or_create_collection(
+            image_collection or settings.image_collection,
+            metadata={"hnsw:space": "cosine"},
+        )
         self.face_collection = self.client.get_or_create_collection(
             "face_identities",
             metadata={"hnsw:space": "cosine"},

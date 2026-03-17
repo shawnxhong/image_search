@@ -66,12 +66,19 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
       .map((f) => ({ face_id: f.face_id, name: faceNames[f.face_id].trim() }))
 
     try {
-      await updateFaces(card.image_id, entries)
+      const result = await updateFaces(card.image_id, entries)
       const updatedFaces: DetectedFace[] = card.faces.map((f) => ({
         ...f,
         name: faceNames[f.face_id]?.trim() || f.name,
       }))
-      onUpdate({ faces: updatedFaces })
+      const update: Partial<IngestCardState> = { faces: updatedFaces }
+      if (result.ingestion_status) {
+        update.status = result.ingestion_status as IngestCardState['status']
+      }
+      if (result.caption) {
+        update.caption = result.caption
+      }
+      onUpdate(update)
       setSaved(true)
     } catch {
       // silently fail for demo
@@ -85,11 +92,18 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
     setDismissing((prev) => ({ ...prev, [faceId]: true }))
 
     try {
-      await dismissFace(card.image_id, faceId)
+      const result = await dismissFace(card.image_id, faceId)
       const updatedFaces: DetectedFace[] = card.faces.map((f) =>
         f.face_id === faceId ? { ...f, dismissed: true } : f,
       )
-      onUpdate({ faces: updatedFaces })
+      const update: Partial<IngestCardState> = { faces: updatedFaces }
+      if (result.ingestion_status) {
+        update.status = result.ingestion_status as IngestCardState['status']
+      }
+      if (result.caption) {
+        update.caption = result.caption
+      }
+      onUpdate(update)
     } catch {
       // silently fail for demo
     } finally {

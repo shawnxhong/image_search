@@ -13,6 +13,28 @@
         <p>Search with text and/or image path, then review solid matches first and soft matches second.</p>
       </header>
 
+      <section class="panel llm-panel">
+        <h2>LLM Control</h2>
+        <div class="llm-status" id="llmStatus">
+          <span class="llm-indicator off" id="llmIndicator"></span>
+          <span id="llmStatusText">Checking...</span>
+        </div>
+        <div class="grid three">
+          <label>
+            Model
+            <select id="llmModel"><option value="">Loading...</option></select>
+          </label>
+          <label>
+            Device
+            <select id="llmDevice"><option value="">Loading...</option></select>
+          </label>
+          <div class="llm-buttons">
+            <button id="llmLoadBtn" class="btn-load">Load</button>
+            <button id="llmUnloadBtn" class="btn-unload" disabled>Unload</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel">
         <h2>Search</h2>
         <div class="grid two">

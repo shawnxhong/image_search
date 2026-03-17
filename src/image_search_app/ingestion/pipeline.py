@@ -75,25 +75,24 @@ class IngestionPipeline:
             faces = self.face_recognizer.detect(path_str)
             logger.info("Detected %d face(s) for %s", len(faces), image_id)
 
-            # Try to match each face against known identities
+            # Try to match each face against known identities.
+            # Never auto-assign — always present candidates for the user to confirm.
             for face in faces:
                 if face.descriptor:
                     candidates = self.store.match_face_candidates(
                         face.descriptor, top_k=3, threshold=0.8,
                     )
                     face.candidates = candidates  # [(name, distance), ...]
-                    # Auto-assign if top match is confident enough
-                    if candidates and candidates[0][1] < settings.face_identity_threshold:
-                        face.matched_name = candidates[0][0]
+                    if candidates:
                         logger.info(
-                            "Auto-matched face %s to '%s' (dist=%.3f) for %s",
-                            face.face_id, candidates[0][0], candidates[0][1], image_id,
+                            "Face %s candidates: %s for %s",
+                            face.face_id,
+                            [(n, f"{d:.3f}") for n, d in candidates],
+                            image_id,
                         )
-                    else:
-                        face.matched_name = None
                 else:
                     face.candidates = []
-                    face.matched_name = None
+                face.matched_name = None
 
             caption_embedding = self.embeddings.embed_text(caption_result.caption or "")
             image_embedding = self.embeddings.embed_image(path_str)
@@ -179,3 +178,86 @@ class IngestionPipeline:
         logger.info("Ingestion complete for %s (status=%s)",
                      image_id, "pending_labels" if has_unlabeled_faces else "ready")
         return image_id
+
+    def refine_after_labeling(self, image_id: str) -> str | None:
+        """Re-generate caption with person names after face labeling.
+
+        Called when all faces in an image have been named or dismissed.
+        Uses the VLM captioner with the names in the prompt,
+        then updates the DB caption and ChromaDB embedding.
+
+        Returns the new caption, or None if refinement was skipped.
+        """
+        # Load record and collect named people
+        with get_session() as session:
+            record = session.scalar(
+                select(ImageRecord).where(ImageRecord.image_id == image_id)
+            )
+            if record is None:
+                logger.warning("refine_after_labeling: image %s not found", image_id)
+                return None
+
+            file_path = record.file_path
+
+            # Collect non-dismissed people sorted by bbox x_min (left to right)
+            people = [
+                p for p in record.people
+                if not p.dismissed and p.name
+            ]
+
+        if not people:
+            # No named people — nothing to refine
+            logger.info("No named people for %s, skipping caption refinement", image_id)
+            with get_session() as session:
+                rec = session.scalar(
+                    select(ImageRecord).where(ImageRecord.image_id == image_id)
+                )
+                if rec and rec.ingestion_status == "refining_caption":
+                    rec.ingestion_status = "ready"
+                    session.commit()
+            return None
+
+        # Sort by bbox x_min (left to right in the image)
+        def bbox_x(p):
+            try:
+                return int(p.bbox.split(",")[0])
+            except (ValueError, IndexError):
+                return 0
+
+        people.sort(key=bbox_x)
+        names = [p.name for p in people]
+
+        # Generate refined caption
+        try:
+            logger.info("Refining caption for %s with names: %s", image_id, names)
+            caption_result = self.captioner.generate_with_names(file_path, names)
+            new_caption = caption_result.caption
+            logger.info("Refined caption for %s: %s", image_id, new_caption)
+
+            # Re-embed and update ChromaDB
+            caption_embedding = self.embeddings.embed_text(new_caption)
+            self.store.upsert_caption_embedding(image_id, caption_embedding, new_caption)
+
+            # Update DB
+            with get_session() as session:
+                rec = session.scalar(
+                    select(ImageRecord).where(ImageRecord.image_id == image_id)
+                )
+                if rec:
+                    rec.caption = new_caption
+                    rec.caption_confidence = caption_result.confidence
+                    rec.ingestion_status = "ready"
+                    session.commit()
+
+            return new_caption
+
+        except Exception as exc:
+            logger.exception("Caption refinement failed for %s", image_id)
+            with get_session() as session:
+                rec = session.scalar(
+                    select(ImageRecord).where(ImageRecord.image_id == image_id)
+                )
+                if rec:
+                    rec.ingestion_status = "failed"
+                    session.commit()
+            raise

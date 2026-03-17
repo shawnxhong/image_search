@@ -209,3 +209,7 @@ __marimo__/
 # Node / Frontend
 node_modules/
 frontend/dist/
+
+models
+.chroma
+image_search.db*

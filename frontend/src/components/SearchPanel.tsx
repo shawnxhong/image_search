@@ -6,16 +6,24 @@ import styles from './SearchPanel.module.css'
 interface SearchPanelProps {
   onSearch: (mode: QueryMode, textQuery: string, imagePath: string, topK: number, thumbSize: ThumbnailSize) => void
   loading: boolean
+  checkModels?: () => string | null
 }
 
-export default function SearchPanel({ onSearch, loading }: SearchPanelProps) {
+export default function SearchPanel({ onSearch, loading, checkModels }: SearchPanelProps) {
   const [mode, setMode] = useState<QueryMode>('text')
   const [textQuery, setTextQuery] = useState('')
   const [imagePath, setImagePath] = useState('')
   const [maxResults, setMaxResults] = useState(DEFAULT_MAX_RESULTS)
   const [thumbSize, setThumbSize] = useState<ThumbnailSize>(DEFAULT_THUMBNAIL_SIZE)
+  const [modelWarning, setModelWarning] = useState<string | null>(null)
 
   function handleSearch() {
+    const warning = checkModels?.()
+    if (warning) {
+      setModelWarning(warning)
+      return
+    }
+    setModelWarning(null)
     onSearch(mode, textQuery, imagePath, maxResults, thumbSize)
   }
 
@@ -71,6 +79,13 @@ export default function SearchPanel({ onSearch, loading }: SearchPanelProps) {
           disabled={mode === 'text'}
         />
       </label>
+
+      {modelWarning && (
+        <p className={styles.modelWarning}>
+          {modelWarning}
+          <button className={styles.dismissBtn} onClick={() => setModelWarning(null)}>Dismiss</button>
+        </p>
+      )}
 
       <div className={styles.row}>
         <label className={styles.field}>

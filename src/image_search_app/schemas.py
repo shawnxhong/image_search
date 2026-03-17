@@ -88,12 +88,16 @@ class UpdateFacesRequest(BaseModel):
 class UpdateFacesResponse(BaseModel):
     image_id: UUID
     updated: int
+    caption: str | None = None
+    ingestion_status: str | None = None
 
 
 class DismissFaceResponse(BaseModel):
     image_id: str
     face_id: str
     dismissed: bool
+    caption: str | None = None
+    ingestion_status: str | None = None
 
 
 class MatchExplanation(BaseModel):
@@ -113,3 +117,28 @@ class SearchResultItem(BaseModel):
 class DualListSearchResponse(BaseModel):
     solid_results: list[SearchResultItem]
     soft_results: list[SearchResultItem]
+
+
+class AgentStep(BaseModel):
+    step_type: Literal["thinking", "tool_call", "tool_result", "done", "error"]
+    tool_name: str | None = None
+    tool_args: dict | None = None
+    result_count: int | None = None
+    message: str = ""
+
+
+class LLMStatusResponse(BaseModel):
+    loaded: bool
+    model_path: str | None = None
+    model_name: str | None = None
+    device: str | None = None
+
+
+class LLMLoadRequest(BaseModel):
+    model_name: str
+    device: str = "GPU"
+
+
+class LLMAvailableResponse(BaseModel):
+    models: list[str]
+    devices: list[str]

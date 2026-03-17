@@ -4,11 +4,16 @@ import { browseImages, ingestImage } from '../api'
 import IngestCard from './IngestCard'
 import styles from './IngestPanel.module.css'
 
-export default function IngestPanel() {
+interface IngestPanelProps {
+  checkModels?: () => string | null
+}
+
+export default function IngestPanel({ checkModels }: IngestPanelProps) {
   const [selectedPaths, setSelectedPaths] = useState<string[]>([])
   const [cards, setCards] = useState<IngestCardState[]>([])
   const [running, setRunning] = useState(false)
   const [browsing, setBrowsing] = useState(false)
+  const [modelWarning, setModelWarning] = useState<string | null>(null)
 
   async function handleBrowse() {
     setBrowsing(true)
@@ -42,6 +47,13 @@ export default function IngestPanel() {
 
   async function handleStart() {
     if (selectedPaths.length === 0) return
+
+    const warning = checkModels?.()
+    if (warning) {
+      setModelWarning(warning)
+      return
+    }
+    setModelWarning(null)
 
     const initial: IngestCardState[] = selectedPaths.map((p) => ({
       file_path: p,
@@ -129,6 +141,13 @@ export default function IngestPanel() {
               </div>
             ))}
           </div>
+        )}
+
+        {modelWarning && (
+          <p className={styles.modelWarning}>
+            {modelWarning}
+            <button className={styles.dismissBtn} onClick={() => setModelWarning(null)}>Dismiss</button>
+          </p>
         )}
 
         <button

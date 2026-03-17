@@ -12,7 +12,138 @@ const els = {
   softResults: document.getElementById("softResults"),
   solidCount: document.getElementById("solidCount"),
   softCount: document.getElementById("softCount"),
+  // LLM controls
+  llmModel: document.getElementById("llmModel"),
+  llmDevice: document.getElementById("llmDevice"),
+  llmLoadBtn: document.getElementById("llmLoadBtn"),
+  llmUnloadBtn: document.getElementById("llmUnloadBtn"),
+  llmIndicator: document.getElementById("llmIndicator"),
+  llmStatusText: document.getElementById("llmStatusText"),
 };
+
+// ── LLM Control ──────────────────────────────────────────────
+
+async function fetchLLMStatus() {
+  try {
+    const res = await fetch("/llm/status");
+    if (!res.ok) throw new Error("Failed to fetch LLM status");
+    return await res.json();
+  } catch {
+    return { loaded: false };
+  }
+}
+
+async function fetchLLMAvailable() {
+  try {
+    const res = await fetch("/llm/available");
+    if (!res.ok) throw new Error("Failed to fetch available models");
+    return await res.json();
+  } catch {
+    return { models: [], devices: ["CPU", "GPU"] };
+  }
+}
+
+function updateLLMUI(status) {
+  if (status.loaded) {
+    els.llmIndicator.className = "llm-indicator on";
+    els.llmStatusText.textContent = `Loaded: ${status.model_name} on ${status.device}`;
+    els.llmLoadBtn.disabled = true;
+    els.llmUnloadBtn.disabled = false;
+  } else {
+    els.llmIndicator.className = "llm-indicator off";
+    els.llmStatusText.textContent = "Not loaded";
+    els.llmLoadBtn.disabled = false;
+    els.llmUnloadBtn.disabled = true;
+  }
+}
+
+function setLLMLoading(message) {
+  els.llmIndicator.className = "llm-indicator loading";
+  els.llmStatusText.textContent = message;
+  els.llmLoadBtn.disabled = true;
+  els.llmUnloadBtn.disabled = true;
+}
+
+async function populateLLMControls() {
+  const [status, available] = await Promise.all([
+    fetchLLMStatus(),
+    fetchLLMAvailable(),
+  ]);
+
+  // Populate model dropdown
+  els.llmModel.innerHTML = "";
+  if (available.models.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No models found";
+    els.llmModel.appendChild(opt);
+  } else {
+    for (const model of available.models) {
+      const opt = document.createElement("option");
+      opt.value = model;
+      opt.textContent = model;
+      els.llmModel.appendChild(opt);
+    }
+  }
+
+  // Populate device dropdown
+  els.llmDevice.innerHTML = "";
+  for (const device of available.devices) {
+    const opt = document.createElement("option");
+    opt.value = device;
+    opt.textContent = device;
+    els.llmDevice.appendChild(opt);
+  }
+
+  // Pre-select current model/device if loaded
+  if (status.loaded && status.model_name) {
+    els.llmModel.value = status.model_name;
+    els.llmDevice.value = status.device;
+  }
+
+  updateLLMUI(status);
+}
+
+async function loadLLM() {
+  const modelName = els.llmModel.value;
+  const device = els.llmDevice.value;
+  if (!modelName) return;
+
+  setLLMLoading(`Loading ${modelName} on ${device}...`);
+
+  try {
+    const res = await fetch("/llm/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model_name: modelName, device }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Load failed: ${res.status}`);
+    }
+    const status = await res.json();
+    updateLLMUI(status);
+  } catch (error) {
+    updateLLMUI({ loaded: false });
+    els.llmStatusText.textContent = `Error: ${error.message}`;
+  }
+}
+
+async function unloadLLM() {
+  setLLMLoading("Unloading...");
+
+  try {
+    const res = await fetch("/llm/unload", { method: "POST" });
+    if (!res.ok) throw new Error(`Unload failed: ${res.status}`);
+    const status = await res.json();
+    updateLLMUI(status);
+  } catch (error) {
+    const status = await fetchLLMStatus();
+    updateLLMUI(status);
+  }
+}
+
+// ── Search ───────────────────────────────────────────────────
 
 function init() {
   els.maxResults.value = String(config.maxResultsPerList);
@@ -26,6 +157,11 @@ function init() {
   els.imagePath.addEventListener("keydown", (event) => {
     if (event.key === "Enter") runSearch();
   });
+
+  // LLM controls
+  els.llmLoadBtn.addEventListener("click", loadLLM);
+  els.llmUnloadBtn.addEventListener("click", unloadLLM);
+  populateLLMControls();
 }
 
 function applyModeState() {
@@ -116,7 +252,8 @@ async function runSearch() {
     });
 
     if (!res.ok) {
-      throw new Error(`Search failed: ${res.status}`);
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Search failed: ${res.status}`);
     }
 
     const data = await res.json();

@@ -1,12 +1,76 @@
 from __future__ import annotations
 
+import logging
+import subprocess
+import sys
 import threading
+from pathlib import Path
+
+import numpy as np
 
 from image_search_app.config import settings
 
+logger = logging.getLogger(__name__)
+
+# Project root (where pyproject.toml lives)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+
+def _ensure_embedding_model() -> Path:
+    """Ensure the OpenVINO IR embedding model exists, downloading and
+    converting if necessary.  Returns the absolute model directory path.
+    """
+    model_dir = _PROJECT_ROOT / settings.text_embedding_model_dir
+    model_xml = model_dir / "openvino_model.xml"
+
+    if model_xml.exists():
+        return model_dir
+
+    logger.info(
+        "OpenVINO embedding model not found at %s, exporting from %s ...",
+        model_dir, settings.text_embedding_model_name,
+    )
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    # Try optimum-cli export (from optimum-intel)
+    cli_exe = Path(sys.executable).parent / "Scripts" / "optimum-cli"
+    candidates = [
+        # Windows conda/venv
+        [str(cli_exe), "export", "openvino",
+         "--model", settings.text_embedding_model_name,
+         "--task", "feature-extraction",
+         str(model_dir)],
+        # Linux / PATH
+        ["optimum-cli", "export", "openvino",
+         "--model", settings.text_embedding_model_name,
+         "--task", "feature-extraction",
+         str(model_dir)],
+    ]
+
+    for cmd in candidates:
+        exe = Path(cmd[0])
+        if "/" in cmd[0] or "\\" in cmd[0]:
+            if not exe.exists() and not exe.with_suffix(".exe").exists():
+                continue
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            if result.returncode == 0 and model_xml.exists():
+                logger.info("Embedding model exported successfully to %s", model_dir)
+                return model_dir
+            else:
+                logger.warning("optimum-cli export failed (rc=%d): %s", result.returncode, result.stderr)
+        except FileNotFoundError:
+            continue
+
+    raise RuntimeError(
+        f"Failed to export embedding model. Install optimum-intel and run:\n"
+        f"  optimum-cli export openvino --model {settings.text_embedding_model_name} "
+        f"--task feature-extraction {model_dir}"
+    )
+
 
 class EmbeddingService:
-    """Text embedding service using sentence-transformers.
+    """Text embedding service using OpenVINO (all-MiniLM-L6-v2).
 
     Both text queries and image captions are embedded into the same text
     vector space. For image embedding, the caller is expected to pass
@@ -14,40 +78,78 @@ class EmbeddingService:
     """
 
     def __init__(self) -> None:
-        self._model = None
+        self._compiled = None
+        self._tokenizer = None
+        self._input_names: list[str] = []
         self._lock = threading.Lock()
 
     def _load(self) -> None:
-        if self._model is not None:
+        if self._compiled is not None:
             return
 
         with self._lock:
-            # Double-check after acquiring lock
-            if self._model is not None:
+            if self._compiled is not None:
                 return
 
-            from sentence_transformers import SentenceTransformer
+            model_dir = _ensure_embedding_model()
 
-            model_name = settings.text_embedding_model_name
-            try:
-                model = SentenceTransformer(model_name)
-            except Exception:
-                model = SentenceTransformer(model_name, local_files_only=True)
-            self._model = model
+            from openvino import Core
+            from transformers import AutoTokenizer
+
+            core = Core()
+            model = core.read_model(str(model_dir / "openvino_model.xml"))
+            self._compiled = core.compile_model(model, "CPU")
+            self._input_names = [inp.get_any_name() for inp in self._compiled.inputs]
+            self._tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
+            logger.info("OpenVINO embedding model loaded from %s", model_dir)
+
+    def unload(self) -> None:
+        """Release the embedding model and free memory."""
+        with self._lock:
+            if self._compiled is not None:
+                import gc
+                del self._compiled
+                self._compiled = None
+                self._tokenizer = None
+                self._input_names = []
+                gc.collect()
+                logger.info("Embedding model unloaded")
+
+    def status(self) -> dict:
+        return {"loaded": self._compiled is not None, "name": "all-MiniLM-L6-v2"}
+
+    def _encode(self, text: str) -> np.ndarray:
+        """Encode a single text string into a normalized embedding vector."""
+        tokens = self._tokenizer(text, return_tensors="np", padding=True, truncation=True)
+        inputs = {k: v for k, v in tokens.items() if k in self._input_names}
+
+        with self._lock:
+            result = self._compiled(inputs)
+        token_embeddings = result[0]  # (1, seq_len, 384)
+
+        # Mean pooling over non-padding tokens
+        attention_mask = tokens["attention_mask"]
+        mask_expanded = np.expand_dims(attention_mask, -1)  # (1, seq_len, 1)
+        sum_embeddings = np.sum(token_embeddings * mask_expanded, axis=1)
+        sum_mask = np.sum(mask_expanded, axis=1)
+        mean_pooled = sum_embeddings / np.maximum(sum_mask, 1e-9)
+
+        # L2 normalize
+        norm = np.linalg.norm(mean_pooled, axis=1, keepdims=True)
+        normalized = mean_pooled / np.maximum(norm, 1e-9)
+
+        return normalized[0]
 
     def embed_text(self, text: str) -> list[float]:
         self._load()
-        embedding = self._model.encode(text, convert_to_numpy=True)
-        return embedding.tolist()
+        return self._encode(text).tolist()
 
     def embed_image(self, image_path: str) -> list[float]:
         """Embed an image by its file path.
 
         Since we use a text-only embedding model, this generates a
         path-based placeholder embedding. The primary image retrieval
-        path uses caption embeddings (embed_text with the BLIP caption).
+        path uses caption embeddings (embed_text with the VLM caption).
         """
         self._load()
-        # Use the file path as a fallback text representation
-        embedding = self._model.encode(f"image: {image_path}", convert_to_numpy=True)
-        return embedding.tolist()
+        return self._encode(f"image: {image_path}").tolist()

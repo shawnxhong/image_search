@@ -1,11 +1,32 @@
+"""Image captioning using Qwen2.5-VL via OpenVINO GenAI VLMPipeline."""
+
 from __future__ import annotations
 
+import logging
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from image_search_app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Project root (where pyproject.toml lives)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+# Limit image size to avoid GPU OOM on large photos
+MAX_IMAGE_PIXELS = 1024 * 1024  # ~1 megapixel
+
+CAPTION_PROMPT = "Describe this image in one sentence."
+
+CAPTION_WITH_NAMES_PROMPT = (
+    "Describe what is happening in this photo in one sentence. "
+    "The people in the photo are: {names}. "
+    "Use their names instead of generic terms like 'a man' or 'a person'."
+)
 
 
 @dataclass
@@ -14,66 +35,118 @@ class CaptionResult:
     confidence: float
 
 
+def _load_image_as_tensor(image_path: str):
+    """Load an image and convert to OpenVINO Tensor (NHWC uint8).
+
+    Large images are resized to stay within MAX_IMAGE_PIXELS.
+    """
+    import openvino as ov
+
+    img = Image.open(image_path).convert("RGB")
+    w, h = img.size
+    if w * h > MAX_IMAGE_PIXELS:
+        scale = (MAX_IMAGE_PIXELS / (w * h)) ** 0.5
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        logger.debug("Resized %dx%d -> %dx%d", w, h, img.width, img.height)
+    arr = np.expand_dims(np.array(img), axis=0)  # NHWC
+    return ov.Tensor(arr)
+
+
+def _format_names(names: list[str]) -> str:
+    """Format a list of names for the prompt.
+
+    Examples:
+        ["Alice"]               -> "Alice"
+        ["Alice", "Bob"]        -> "Alice, Bob"
+        ["Alice", "Bob", "Eve"] -> "Alice, Bob, Eve"
+    """
+    return ", ".join(names)
+
+
 class Captioner:
-    """Image captioning using BLIP (Salesforce/blip-image-captioning-base)."""
+    """Image captioning using Qwen2.5-VL via OpenVINO GenAI VLMPipeline."""
 
     def __init__(self) -> None:
-        self._processor = None
-        self._model = None
-        self._device = "cpu"
+        self._pipeline = None
         self._lock = threading.Lock()
 
     def _load(self) -> None:
-        if self._model is not None:
+        if self._pipeline is not None:
             return
 
         with self._lock:
-            # Double-check after acquiring lock
-            if self._model is not None:
+            if self._pipeline is not None:
                 return
 
-            import torch
-            from transformers import BlipForConditionalGeneration, BlipProcessor
+            import openvino_genai as ov_genai
 
-            model_name = settings.caption_model_name
-            try:
-                processor = BlipProcessor.from_pretrained(model_name)
-                model = BlipForConditionalGeneration.from_pretrained(model_name)
-            except Exception:
-                # Fall back to cached model if network is unavailable
-                processor = BlipProcessor.from_pretrained(model_name, local_files_only=True)
-                model = BlipForConditionalGeneration.from_pretrained(model_name, local_files_only=True)
-            self._device = "cuda" if torch.cuda.is_available() else "cpu"
-            model.to(self._device)
-            model.eval()
-            self._processor = processor
-            self._model = model
+            model_path = Path(settings.vlm_model_path)
+            if not model_path.is_absolute():
+                model_path = _PROJECT_ROOT / model_path
+            device = settings.vlm_device
+            logger.info("Loading VLM captioner from %s on %s", model_path, device)
+            self._pipeline = ov_genai.VLMPipeline(str(model_path), device)
+            logger.info("VLM captioner loaded")
+
+    def unload(self) -> None:
+        """Release the VLM pipeline and free memory."""
+        with self._lock:
+            if self._pipeline is not None:
+                import gc
+                del self._pipeline
+                self._pipeline = None
+                gc.collect()
+                logger.info("VLM captioner unloaded")
+
+    def status(self) -> dict:
+        return {"loaded": self._pipeline is not None, "name": "Qwen2.5-VL Captioner"}
 
     def generate(self, image_path: str) -> CaptionResult:
-        import torch
-
+        """Generate an unconditional caption for an image."""
         self._load()
 
-        img = Image.open(image_path).convert("RGB")
-        inputs = self._processor(images=img, return_tensors="pt").to(self._device)
+        image_tensor = _load_image_as_tensor(image_path)
+        config = self._gen_config()
 
-        with torch.no_grad():
-            output = self._model.generate(
-                **inputs,
-                max_new_tokens=50,
-                num_beams=4,
-                output_scores=True,
-                return_dict_in_generate=True,
+        with self._lock:
+            result = self._pipeline.generate(
+                CAPTION_PROMPT,
+                images=[image_tensor],
+                generation_config=config,
             )
+            self._pipeline.finish_chat()
 
-        caption = self._processor.decode(output.sequences[0], skip_special_tokens=True).strip()
+        caption = str(result).strip()
+        return CaptionResult(caption=caption, confidence=0.8)
 
-        # Approximate confidence from sequence scores
-        if output.sequences_scores is not None:
-            # scores are log-probabilities; convert to 0-1 range
-            log_prob = output.sequences_scores[0].item()
-            confidence = min(1.0, max(0.0, 1.0 + log_prob / 10.0))
-        else:
-            confidence = 0.5
+    def generate_with_names(self, image_path: str, names: list[str]) -> CaptionResult:
+        """Generate a caption conditioned on known person names.
 
-        return CaptionResult(caption=caption, confidence=round(confidence, 4))
+        Uses a prompt that tells the VLM who the people are so it uses
+        their names instead of generic descriptions.
+        """
+        self._load()
+
+        image_tensor = _load_image_as_tensor(image_path)
+        config = self._gen_config()
+
+        prompt = CAPTION_WITH_NAMES_PROMPT.format(names=_format_names(names))
+
+        with self._lock:
+            result = self._pipeline.generate(
+                prompt,
+                images=[image_tensor],
+                generation_config=config,
+            )
+            self._pipeline.finish_chat()
+
+        caption = str(result).strip()
+        return CaptionResult(caption=caption, confidence=0.85)
+
+    def _gen_config(self):
+        import openvino_genai as ov_genai
+
+        config = ov_genai.GenerationConfig()
+        config.max_new_tokens = 100
+        config.do_sample = False
+        return config
