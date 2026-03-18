@@ -42,7 +42,17 @@ The agent can call multiple tools and loop to refine its approach. Results are a
 
 Both lists are sorted by semantic similarity score. The user sees the agent's reasoning steps in real time via streaming.
 
-### 3. Model Management
+### 3. Library Browsing
+
+The Library tab shows all ingested images sorted by date (most recent first). Each image card displays:
+- Capture date
+- Location (city, state, country — from reverse geocoding)
+- VLM-generated caption
+- File path
+
+The library uses cursor-based pagination (50 images per page) with a "Load More" button. No models need to be loaded — this is a pure database view.
+
+### 4. Model Management
 
 Since the app runs on a PC with limited hardware, not all AI models can be loaded simultaneously. The Model Control Panel lets users load and unload four model groups:
 

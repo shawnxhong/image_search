@@ -124,6 +124,9 @@ class LibraryImageItem(BaseModel):
     file_path: str
     caption: str | None = None
     capture_timestamp: datetime | None = None
+    country: str | None = None
+    state: str | None = None
+    city: str | None = None
     ingestion_status: str = "received"
 
 

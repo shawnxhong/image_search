@@ -32,6 +32,11 @@
   color: #374151;
 }
 
+.location {
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .caption {
   color: #4b5563;
   margin: 2px 0;

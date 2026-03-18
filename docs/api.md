@@ -66,6 +66,38 @@ Image-based search. Delegates to text search if a query is provided alongside th
 }
 ```
 
+## Library Endpoint
+
+### `GET /library`
+
+List all images sorted by date (most recent first), with cursor-based pagination. Images without timestamps appear last.
+
+**Query params:**
+- `limit` (int, default 50, max 200) — page size
+- `cursor` (string, optional) — `image_id` of the last item from the previous page
+
+**Response:** `LibraryResponse`
+```json
+{
+  "images": [
+    {
+      "image_id": "uuid",
+      "file_path": "/photos/beach.jpg",
+      "caption": "Alice standing on a sunny beach",
+      "capture_timestamp": "2025-06-15T00:00:00Z",
+      "country": "United States",
+      "state": "California",
+      "city": "Los Angeles",
+      "ingestion_status": "ready"
+    }
+  ],
+  "total": 42,
+  "next_cursor": "uuid-of-last-item"
+}
+```
+
+`next_cursor` is `null` when all images have been returned.
+
 ## Ingestion Endpoints
 
 ### `POST /ingest`
@@ -188,5 +220,5 @@ Serve an image file for thumbnail preview.
 ## Dev Proxy (Vite)
 
 During development, Vite proxies these routes to `http://127.0.0.1:8000`:
-- `/search`, `/ingest`, `/health`, `/image-preview`
+- `/library`, `/search`, `/ingest`, `/health`, `/image-preview`
 - `/browse-images`, `/images`, `/llm`, `/models`

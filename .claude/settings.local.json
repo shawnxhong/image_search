@@ -161,7 +161,12 @@
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py tests/test_model_paths.py -v)",
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_library.py -v 2>&1)",
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_library.py -v)",
-      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_library.py tests/test_search_improvements.py tests/test_model_paths.py tests/test_time_parser.py tests/test_chroma_store.py tests/test_embeddings.py tests/test_exif.py tests/test_faces.py tests/test_filters.py tests/test_captioner.py -v)"
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_library.py tests/test_search_improvements.py tests/test_model_paths.py tests/test_time_parser.py tests/test_chroma_store.py tests/test_embeddings.py tests/test_exif.py tests/test_faces.py tests/test_filters.py tests/test_captioner.py -v)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/ -v --tb=short)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py -v --tb=short)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py tests/test_library.py -v --tb=short)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_query_preprocess.py -v --tb=short 2>&1)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_query_preprocess.py tests/test_search_improvements.py -v --tb=short)"
     ]
   }
 }

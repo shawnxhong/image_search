@@ -34,6 +34,80 @@ from image_search_app.vector.embeddings import EmbeddingService
 
 logger = logging.getLogger(__name__)
 
+# -- Query preprocessing: translate non-English queries for caption matching --
+
+_TRANSLATE_PROMPT = """\
+You are a query translator for an English-language photo search system. \
+Translate the user's search query into English so it can match English captions.
+
+Rules:
+- Translate descriptive words, scene descriptions, time expressions, and \
+location names into English.
+- CRITICAL: Person names must be copied exactly as-is from the input. \
+Do NOT transliterate, romanize, or convert names to pinyin. \
+If the input has a Chinese name like 小丽, the output must also have 小丽, \
+NOT Xiao Li or Xiaoli. This is because the database stores names in the \
+original script entered by the user.
+- If the query is already fully in English, return it unchanged.
+- Return ONLY the translated query, nothing else. No explanation.
+
+Examples:
+- Input: Tom at the beach
+  Output: Tom at the beach
+- Input: 小丽在实验室
+  Output: 小丽 in a lab
+  WRONG: Xiao Li in a lab
+- Input: 小丽和Tom在海边
+  Output: 小丽 and Tom at the beach
+  WRONG: Xiao Li and Tom at the beach
+- Input: 去年在公园的照片
+  Output: photos in the park last year
+- Input: 张伟在纽约
+  Output: 张伟 in New York
+  WRONG: Zhang Wei in New York
+- Input: 小丽在实验室的照片
+  Output: 小丽 in a lab
+  WRONG: Xiao Li in a lab\
+"""
+
+
+def _has_non_ascii(text: str) -> bool:
+    """Check if text contains non-ASCII characters (likely non-English)."""
+    return any(ord(c) > 127 for c in text)
+
+
+def preprocess_query(query: str) -> str:
+    """Translate a non-English query to English, preserving person names.
+
+    If the query is already ASCII-only, returns it unchanged (no LLM call).
+    Uses a lightweight LLM call without tool-calling mode.
+    """
+    if not _has_non_ascii(query):
+        return query
+
+    llm = get_llm_service()
+    messages = [
+        {"role": "system", "content": _TRANSLATE_PROMPT},
+        {"role": "user", "content": query},
+    ]
+
+    try:
+        response = llm.chat(messages=messages)
+        translated = strip_thinking(response).strip()
+        # Sanity check: if LLM returned empty or very long response, use original
+        if not translated or len(translated) > len(query) * 3:
+            logger.warning(
+                "Query translation returned suspicious result, using original: %r -> %r",
+                query, translated,
+            )
+            return query
+        logger.info("Query translated: %r -> %r", query, translated)
+        return translated
+    except Exception:
+        logger.exception("Query translation failed, using original query")
+        return query
+
+
 SYSTEM_PROMPT = """\
 You are a search assistant for a personal photo library. Given a user query, \
 decide which search tools to call to find relevant images.
@@ -41,14 +115,34 @@ decide which search tools to call to find relevant images.
 Guidelines:
 - If the query mentions a person by name, use search_by_person.
 - If the query describes visual content (scenes, objects, actions), use \
-search_by_caption with ONLY the descriptive words — strip out person names, \
-dates, and location references.
+search_by_caption with ONLY the descriptive words -- strip out person names, \
+dates, and geographic location names.
 - If the query mentions a time period, use search_by_time.
-- If the query implies a physical place or location, use search_by_location.
+- search_by_location ONLY works with proper geographic names (cities, states, \
+countries) derived from GPS metadata, e.g. New York, California, France. \
+For scene/setting words like library, beach, park, kitchen, office, \
+use search_by_caption instead -- the captions describe what is in the photo.
 - You may call multiple tools in sequence for a single query.
 - Do NOT call tools that are not relevant to the query.
 - After you have called all necessary tools, respond to the user without \
-Action/Action Input tags. Just say DONE.\
+Action/Action Input tags. Just say DONE.
+
+Examples:
+- Query: Alice at the beach in 2024
+  Tools: search_by_person(name=Alice), search_by_caption(query=beach), \
+search_by_time(description=2024)
+
+- Query: photos in a library
+  Tools: search_by_caption(query=library)
+  Note: NOT search_by_location because library is a scene description, not a city/country
+
+- Query: sunset in Paris last summer
+  Tools: search_by_caption(query=sunset), search_by_location(location=Paris), \
+search_by_time(description=last summer)
+
+- Query: kids playing in the park
+  Tools: search_by_caption(query=kids playing in the park)
+  Note: NOT search_by_location because park is a scene, not a geographic name\
 """
 
 # Type alias for the step callback
@@ -145,13 +239,15 @@ def _tool_node(state: AgentState) -> dict:
 
         logger.info("Executing tool: %s(%s)", name, args)
         results = execute_tool(name, args, store=store, embeddings=embeddings)
-        logger.info("Tool %s returned %d results", name, len(results))
+        # Count only actual image results (exclude hint-only dicts)
+        image_result_count = sum(1 for r in results if r.get("image_id"))
+        logger.info("Tool %s returned %d results", name, image_result_count)
 
         _emit(AgentStep(
             step_type="tool_result",
             tool_name=name,
-            result_count=len(results),
-            message=f"{name} returned {len(results)} results",
+            result_count=image_result_count,
+            message=f"{name} returned {image_result_count} results",
         ))
 
         # Append tool result as a message for the LLM

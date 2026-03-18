@@ -26,6 +26,9 @@ export interface LibraryImageItem {
   file_path: string
   caption: string | null
   capture_timestamp: string | null
+  country: string | null
+  state: string | null
+  city: string | null
   ingestion_status: string
 }
 

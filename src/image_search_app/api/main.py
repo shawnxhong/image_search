@@ -76,6 +76,9 @@ def library(
             file_path=img.file_path,
             caption=img.caption,
             capture_timestamp=img.capture_timestamp,
+            country=img.country,
+            state=img.state,
+            city=img.city,
             ingestion_status=img.ingestion_status,
         )
         for img in images

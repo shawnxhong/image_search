@@ -1,6 +1,6 @@
 # UI Reference
 
-React 19 SPA with two tabs: **Search** and **Ingest**. The Model Control Panel is always visible above the tabs.
+React 19 SPA with three tabs: **Search**, **Library**, and **Ingest**. The Model Control Panel is always visible above the tabs.
 
 ## Page Layout
 
@@ -15,7 +15,7 @@ React 19 SPA with two tabs: **Search** and **Ingest**. The Model Control Panel i
 |  Embeddings:                        Load  |
 |  Face Detection:                    Load  |
 +------------------------------------------+
-|  [ Search ]  [ Ingest ]    ← tab bar    |
+| [ Search ] [ Library ] [ Ingest ] ← tabs |
 +------------------------------------------+
 |                                          |
 |  (active tab content below)              |
@@ -131,13 +131,59 @@ Two result grids appear after a search:
 - **Empty state** — "No solid matches found." / "No additional soft matches."
 - Both sections only appear after the first search is performed
 
-### Image Card
+### Image Card (Search Variant)
 
 Each result card shows:
 - **Thumbnail** — loaded via `/image-preview?path=...`, lazy-loaded, size controlled by thumbnail setting
-- **Score** — semantic similarity as percentage
+- **Score** — semantic similarity score
 - **File path**
 - **Match explanation** — reason text (e.g. "Matched all criteria: caption match, person match")
+
+## Library Tab
+
+Displays all ingested images sorted by date (most recent first). No models need to be loaded — this is a pure database view.
+
+```
++---------------------------------------------------+
+|  Library  42          Thumbnail size: [Medium ▾]  |
+|                                                   |
+|  +--------+  +--------+  +--------+  +--------+  |
+|  | thumb  |  | thumb  |  | thumb  |  | thumb  |  |
+|  | Jan 1  |  | Jun 15 |  | Jun 15 |  | Mar 10 |  |
+|  | NYC,NY |  | LA, CA |  |        |  | Paris  |  |
+|  | caption|  | caption|  | caption|  | caption|  |
+|  | path   |  | path   |  | path   |  | path   |  |
+|  +--------+  +--------+  +--------+  +--------+  |
+|                                                   |
+|        [Load More (4 of 42)]                      |
++---------------------------------------------------+
+```
+
+- **Header** — shows total image count and thumbnail size selector
+- **Grid** — responsive grid of image cards (library variant)
+- **Load More** — cursor-based pagination, loads 50 images at a time. Hidden when all images are loaded.
+- **Empty state** — "No images in the library yet. Use the Ingest tab to add images."
+- **Auto-loads** first page on tab mount
+
+### Image Card (Library Variant)
+
+Each library card shows:
+- **Thumbnail** — same lazy-loaded preview as search cards
+- **Date** — formatted capture date (e.g. "Jun 15, 2025"), or "No date"
+- **Location** — city, state, country (e.g. "New York City, New York, United States"). Only shown when location data is available.
+- **Caption** — VLM-generated description, or "No caption"
+- **File path**
+
+### Image Card Component
+
+`ImageCard` is a **reusable component** with two rendering variants controlled by the `variant` prop:
+
+| Variant | Used In | Shows |
+|---------|---------|-------|
+| `search` | Search results (solid/soft) | Score, explanation, file path |
+| `library` | Library grid | Date, location, caption, file path |
+
+Both variants share the same thumbnail rendering, card layout, and lazy loading behavior. The component is designed for future extension with additional variants.
 
 ## Ingest Tab
 

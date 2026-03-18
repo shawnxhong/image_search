@@ -250,7 +250,11 @@ class TestLocationSearch:
     def test_no_match(self, seed_images):
         from image_search_app.tools.search_tools import search_by_location
         results = search_by_location("Tokyo")
-        assert len(results) == 0
+        # No actual image results — only a hint suggesting caption search
+        image_results = [r for r in results if r.get("image_id")]
+        assert len(image_results) == 0
+        assert len(results) == 1
+        assert "hint" in results[0]
 
     def test_empty_location_returns_nothing(self, seed_images):
         from image_search_app.tools.search_tools import search_by_location

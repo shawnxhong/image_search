@@ -73,6 +73,9 @@ export default function LibraryPanel() {
                 file_path={img.file_path}
                 caption={img.caption}
                 capture_timestamp={img.capture_timestamp}
+                country={img.country}
+                state={img.state}
+                city={img.city}
                 thumbSize={thumbSize}
               />
             ))}

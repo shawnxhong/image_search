@@ -28,8 +28,10 @@ TOOL_DEFINITIONS = [
             "name": "search_by_caption",
             "description": (
                 "Semantic search over image captions. Use this when the query describes "
-                "visual content like scenes, objects, or actions. Pass ONLY the descriptive "
-                "words — strip out person names, dates, and location references."
+                "visual content like scenes, objects, actions, or settings/places that are NOT "
+                "proper geographic names. For example, 'library', 'beach', 'park', 'kitchen' "
+                "are scene descriptions and should use this tool. Pass ONLY the descriptive "
+                "words -- strip out person names, dates, and geographic location names."
             ),
             "parameters": {
                 "type": "object",
@@ -93,8 +95,11 @@ TOOL_DEFINITIONS = [
         "function": {
             "name": "search_by_location",
             "description": (
-                "Find images taken at a specific location. "
-                "Use this when the query mentions a physical place, city, state, or country."
+                "Find images taken at a specific geographic location by matching against "
+                "GPS-derived city, state, or country names. ONLY use this for proper "
+                "geographic names like 'New York', 'Japan', 'California'. Do NOT use this "
+                "for scene descriptions like 'library', 'beach', 'park', 'kitchen' -- those "
+                "should go to search_by_caption instead."
             ),
             "parameters": {
                 "type": "object",
@@ -201,6 +206,10 @@ def search_by_location(location: str = "") -> list[dict]:
 
     Searches country, state, and city fields (case-insensitive substring match).
     Returns [{image_id, country, state, city}].
+
+    If no results are found, returns a hint suggesting the agent try
+    search_by_caption instead (the term may be a scene description
+    rather than a geographic name).
     """
     search_term = location.strip().lower()
     if not search_term:
@@ -224,10 +233,26 @@ def search_by_location(location: str = "") -> list[dict]:
             )
         ).all()
 
-    return [
+    results = [
         {"image_id": img_id, "country": country, "state": state, "city": city}
         for img_id, country, state, city in rows
     ]
+
+    if not results:
+        logger.info(
+            "search_by_location found no results for '%s' — may be a scene description",
+            location,
+        )
+        return [{
+            "hint": (
+                f"No geographic location matching '{location}' was found in any "
+                f"image's GPS-derived city/state/country. If '{location}' is a "
+                f"scene description (e.g. a building, venue, or setting), try "
+                f"search_by_caption(query=\"{location}\") instead."
+            ),
+        }]
+
+    return results
 
 
 # -- Dispatcher --

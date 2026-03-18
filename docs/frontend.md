@@ -15,11 +15,12 @@ frontend/
 │   ├── index.css                       # Global styles
 │   ├── App.module.css
 │   ├── components/
-│   │   ├── TabNav.tsx                  # Search / Ingest tab switcher
+│   │   ├── TabNav.tsx                  # Search / Library / Ingest tab switcher
 │   │   ├── SearchPanel.tsx             # Query input, mode selection, top-K
 │   │   ├── AgentLog.tsx                # Real-time agent step display
 │   │   ├── ResultsSection.tsx          # Solid/soft results grid
-│   │   ├── ImageCard.tsx               # Individual image thumbnail
+│   │   ├── ImageCard.tsx               # Reusable image card (search + library variants)
+│   │   ├── LibraryPanel.tsx            # Browse all images, paginated
 │   │   ├── IngestPanel.tsx             # Ingestion workflow
 │   │   ├── IngestCard.tsx              # Single image card with face labeling
 │   │   ├── LLMPanel.tsx                # Model load/unload controls
@@ -36,14 +37,14 @@ frontend/
 ### App.tsx
 
 Root component managing application state:
-- **Tab routing** — Switches between Search and Ingest views via `TabNav`
+- **Tab routing** — Switches between Search, Library, and Ingest views via `TabNav`
 - **Search state** — `solidResults`, `softResults`, `agentSteps`, `isLoading`
 - **Model checks** — `checkSearchModels()` / `checkIngestModels()` validate model readiness before actions
 - **Model status** — Tracks via `useRef<ModelStatusSnapshot>` updated by `LLMPanel.onStatusChange`
 
 ### TabNav.tsx
 
-Two-tab navigation: **Search** and **Ingest**. Controls which panel is visible.
+Three-tab navigation: **Search**, **Library**, and **Ingest**. Controls which panel is visible.
 
 ### LLMPanel.tsx
 
@@ -82,10 +83,21 @@ Search results display:
 
 ### ImageCard.tsx
 
-Individual search result:
-- **Thumbnail** — Loaded via `/image-preview?path=...`
-- **Score** — Displayed as percentage
-- **Explanation** — Hover/click to see match reason
+Reusable image card component with two rendering variants via discriminated union props:
+
+- **`variant: 'search'`** — Shows score, file path, and match explanation. Used by `ResultsSection`.
+- **`variant: 'library'`** — Shows date, location (city/state/country), caption, and file path. Used by `LibraryPanel`.
+
+Both variants share the same thumbnail rendering (`/image-preview?path=...`, lazy-loaded, configurable size). Designed for future extension with additional variants.
+
+### LibraryPanel.tsx
+
+Browse all ingested images:
+- **Auto-loads** first page (50 images) on mount
+- **Grid layout** — responsive grid with configurable thumbnail size
+- **Cursor pagination** — "Load More" button appends the next page
+- **Image cards** — library variant showing date, location, caption
+- **No model requirement** — pure database view, works without any models loaded
 
 ### IngestPanel.tsx
 
@@ -114,6 +126,7 @@ All backend communication:
 
 | Function | Endpoint | Description |
 |----------|----------|-------------|
+| `fetchLibrary(limit, cursor)` | `GET /library` | Paginated image listing |
 | `search(request)` | `POST /search/text` | Non-streaming search |
 | `searchTextStream(query, topK, onStep)` | `POST /search/text/stream` | SSE streaming search |
 | `ingestImage(path)` | `POST /ingest` | Ingest single image |
@@ -142,6 +155,17 @@ interface SearchResultItem {
   file_path: string
   score: number
   explanation: MatchExplanation
+}
+
+interface LibraryImageItem {
+  image_id: string
+  file_path: string
+  caption: string | null
+  capture_timestamp: string | null
+  country: string | null
+  state: string | null
+  city: string | null
+  ingestion_status: string
 }
 
 interface DetectedFace {
@@ -192,6 +216,7 @@ npm run lint
 
 ```typescript
 proxy: {
+  '/library': 'http://127.0.0.1:8000',
   '/search': 'http://127.0.0.1:8000',
   '/ingest': 'http://127.0.0.1:8000',
   '/health': 'http://127.0.0.1:8000',
