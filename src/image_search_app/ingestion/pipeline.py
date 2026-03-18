@@ -87,7 +87,7 @@ class IngestionPipeline:
             for face in faces:
                 if face.descriptor:
                     candidates = self.store.match_face_candidates(
-                        face.descriptor, top_k=3, threshold=0.8,
+                        face.descriptor, top_k=3, threshold=settings.face_identity_threshold,
                     )
                     face.candidates = candidates  # [(name, distance), ...]
                     if candidates:
@@ -208,6 +208,7 @@ class IngestionPipeline:
                 return None
 
             file_path = record.file_path
+            original_caption = record.caption
 
             # Collect non-dismissed people sorted by bbox x_min (left to right)
             people = [
@@ -240,7 +241,7 @@ class IngestionPipeline:
         # Generate refined caption
         try:
             logger.info("Refining caption for %s with names: %s", image_id, names)
-            caption_result = self.captioner.generate_with_names(file_path, names)
+            caption_result = self.captioner.generate_with_names(file_path, names, original_caption=original_caption)
             new_caption = caption_result.caption
             logger.info("Refined caption for %s: %s", image_id, new_caption)
 

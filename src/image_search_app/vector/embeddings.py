@@ -81,6 +81,7 @@ class EmbeddingService:
         self._compiled = None
         self._tokenizer = None
         self._input_names: list[str] = []
+        self._device: str | None = None
         self._lock = threading.Lock()
 
     def _load(self) -> None:
@@ -98,10 +99,12 @@ class EmbeddingService:
 
             core = Core()
             model = core.read_model(str(model_dir / "openvino_model.xml"))
-            self._compiled = core.compile_model(model, "CPU")
+            device = settings.text_embedding_device
+            self._compiled = core.compile_model(model, device)
+            self._device = device
             self._input_names = [inp.get_any_name() for inp in self._compiled.inputs]
             self._tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
-            logger.info("OpenVINO embedding model loaded from %s", model_dir)
+            logger.info("OpenVINO embedding model loaded from %s on %s", model_dir, device)
 
     def unload(self) -> None:
         """Release the embedding model and free memory."""
@@ -112,11 +115,19 @@ class EmbeddingService:
                 self._compiled = None
                 self._tokenizer = None
                 self._input_names = []
+                self._device = None
                 gc.collect()
                 logger.info("Embedding model unloaded")
 
     def status(self) -> dict:
-        return {"loaded": self._compiled is not None, "name": "all-MiniLM-L6-v2"}
+        model_dir = Path(settings.text_embedding_model_dir)
+        model_name = model_dir.name
+        return {
+            "loaded": self._compiled is not None,
+            "name": "Embeddings",
+            "model_name": model_name,
+            "device": self._device or settings.text_embedding_device,
+        }
 
     def _encode(self, text: str) -> np.ndarray:
         """Encode a single text string into a normalized embedding vector."""

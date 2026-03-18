@@ -6,6 +6,7 @@ interface BaseProps {
   image_id: string
   file_path: string
   thumbSize: ThumbnailSize
+  onImageClick?: (filePath: string) => void
 }
 
 interface SearchProps extends BaseProps {
@@ -42,11 +43,12 @@ export default function ImageCard(props: ImageCardProps) {
   return (
     <article className={styles.card}>
       <img
-        className={styles.thumb}
+        className={`${styles.thumb} ${props.onImageClick ? styles.clickable : ''}`}
         style={{ height: px }}
         alt={props.file_path}
         src={`/image-preview?path=${encodeURIComponent(props.file_path)}`}
         loading="lazy"
+        onClick={props.onImageClick ? () => props.onImageClick!(props.file_path) : undefined}
       />
       <div className={styles.content}>
         {props.variant === 'search' && (

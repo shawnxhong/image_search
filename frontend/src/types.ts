@@ -106,6 +106,8 @@ export interface LLMAvailable {
 export interface ModelServiceStatus {
   loaded: boolean
   name: string
+  model_name?: string
+  device?: string
 }
 
 export interface AllModelsStatus {

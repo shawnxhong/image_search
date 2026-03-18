@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     vlm_device: str = "GPU"
     text_embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     text_embedding_model_dir: str = "models/all-MiniLM-L6-v2-ov"
+    text_embedding_device: str = "GPU"
     embedding_dim: int = 384
 
     # OpenVINO face detection models (paths relative to project root)

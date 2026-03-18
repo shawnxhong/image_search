@@ -8,9 +8,10 @@ interface ResultsSectionProps {
   items: SearchResultItem[]
   thumbSize: ThumbnailSize
   emptyText: string
+  onImageClick?: (filePath: string) => void
 }
 
-export default function ResultsSection({ title, items, thumbSize, emptyText }: ResultsSectionProps) {
+export default function ResultsSection({ title, items, thumbSize, emptyText, onImageClick }: ResultsSectionProps) {
   return (
     <section className={styles.panel}>
       <h2>
@@ -29,6 +30,7 @@ export default function ResultsSection({ title, items, thumbSize, emptyText }: R
               score={item.score}
               explanation={item.explanation}
               thumbSize={thumbSize}
+              onImageClick={onImageClick}
             />
           ))}
         </div>

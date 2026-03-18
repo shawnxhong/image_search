@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Agentic image search app built with Python. Uses FastAPI for the API, SQLAlchemy/SQLite for metadata, ChromaDB for vector search, and LangGraph for agent orchestration. The frontend is a vanilla JS SPA served by FastAPI's static file handling.
+Agentic image search app for personal photo libraries. All AI inference runs locally via OpenVINO (CPU/GPU). Uses FastAPI for the API, SQLAlchemy/SQLite for metadata, ChromaDB for vector search, and a LangGraph ReAct agent (Qwen3-4B) for search orchestration. The frontend is a React 19 + TypeScript SPA built with Vite.
 
 ## Commands
 
@@ -30,19 +30,21 @@ ruff format --check src/ tests/
 
 Source lives in `src/image_search_app/` with these layers:
 
-- **api/** — FastAPI app (`main.py`). Mounts the web UI, exposes `/ingest`, `/search/text`, `/search/image`, `/health` endpoints.
-- **agent/** — `SearchAgent` orchestrates search: parses intent, runs vector retrieval, applies hard filters, returns dual-list results (solid vs soft). `langgraph_flow.py` is the planned LangGraph StateGraph migration target.
-- **ingestion/** — Pipeline for processing images: EXIF extraction, captioning, face detection. Currently stub implementations.
-- **tools/** — `IntentParser` extracts structured intent from queries. `time_parser` handles natural-language time ranges. `filters` applies hard constraints against image metadata.
-- **vector/** — ChromaDB wrappers. `ChromaStore` manages collections, `EmbeddingService` handles embeddings (stub), `RetrieverService` provides text and image semantic search.
+- **api/** — FastAPI app (`main.py`). Mounts the React SPA, exposes `/ingest`, `/search/text`, `/search/text/stream` (SSE), `/search/image`, `/health`, `/models/*`, `/images/*` endpoints.
+- **agent/** — `SearchAgent` (`graph.py`) wraps the compiled LangGraph StateGraph (`langgraph_flow.py`). The ReAct agent uses Qwen3-4B to decide which search tools to call, reviews results, and can loop. Includes query preprocessing (non-English → English translation preserving person names).
+- **ingestion/** — Full pipeline: EXIF extraction, reverse geocoding, VLM captioning (Qwen2.5-VL), face detection (Intel OMZ models), embedding. Supports face labeling and caption refinement with names.
+- **tools/** — `search_tools.py` implements 4 search tools (caption, person, time, location). `llm.py` wraps the Qwen3 LLM. `time_parser.py` handles natural-language time ranges.
+- **vector/** — ChromaDB wrappers. `ChromaStore` manages collections (caption, image, face identity). `EmbeddingService` uses all-MiniLM-L6-v2 via OpenVINO. `RetrieverService` provides semantic search.
+- **face_recognition/** — OpenVINO face detection pipeline (detection → landmarks → ReID).
 - **db.py** — SQLAlchemy models (`ImageRecord`, `PersonRecord`) and SQLite engine. `get_session()` returns a session (use as context manager).
 - **schemas.py** — Pydantic models for API request/response types. `DualListSearchResponse` is the core search response with `solid_results` and `soft_results`.
 - **config.py** — `pydantic-settings` based config. All settings use `IMG_SEARCH_` env prefix and can be set via `.env` file.
-- **web/** — Static frontend (vanilla HTML/JS/CSS), served at `/` by FastAPI.
 
 ## Key Patterns
 
 - Search results use a **dual-list pattern**: `solid_results` (passed hard filters) vs `soft_results` (high semantic relevance but failed hard filters). Each result includes a `MatchExplanation`.
-- Many ML components (captioner, embeddings, face detection) are **stubs** returning placeholder values — designed to be swapped with real implementations.
+- All ML models (LLM, VLM, embeddings, face detection) run locally via OpenVINO. Lazy-loaded on demand via the Model Control Panel.
 - Config uses `pydantic-settings` with `IMG_SEARCH_` env prefix (e.g., `IMG_SEARCH_SQLITE_URL`).
-- The `SearchAgent` class is a plain Python orchestrator, not yet using LangGraph's StateGraph.
+- The search agent distinguishes **scene descriptions** (library, beach, park → `search_by_caption`) from **geographic locations** (New York, France → `search_by_location`).
+- Non-English queries are preprocessed with the LLM to translate to English while preserving person names exactly.
+- Caption refinement after face labeling uses a short, direct VLM prompt to regenerate captions with person names included.

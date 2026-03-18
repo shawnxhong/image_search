@@ -6,6 +6,7 @@ import styles from './IngestCard.module.css'
 interface IngestCardProps {
   card: IngestCardState
   onUpdate: (update: Partial<IngestCardState>) => void
+  onImageClick?: (filePath: string) => void
 }
 
 const STATUS_DISPLAY: Record<string, { label: string; className: string }> = {
@@ -29,7 +30,7 @@ function formatGps(lat: number | null, lon: number | null): string {
   return `${Math.abs(lat).toFixed(5)}°${latDir}, ${Math.abs(lon).toFixed(5)}°${lonDir}`
 }
 
-export default function IngestCard({ card, onUpdate }: IngestCardProps) {
+export default function IngestCard({ card, onUpdate, onImageClick }: IngestCardProps) {
   const [faceNames, setFaceNames] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
     for (const f of card.faces) {
@@ -118,10 +119,11 @@ export default function IngestCard({ card, onUpdate }: IngestCardProps) {
     <article className={styles.card}>
       {showThumb ? (
         <img
-          className={styles.thumb}
+          className={`${styles.thumb} ${onImageClick ? styles.clickable : ''}`}
           src={`/image-preview?path=${encodeURIComponent(card.file_path)}`}
           alt={card.file_path}
           loading="lazy"
+          onClick={onImageClick ? () => onImageClick(card.file_path) : undefined}
         />
       ) : (
         <div className={styles.thumbPlaceholder}>

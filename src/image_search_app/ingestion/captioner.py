@@ -22,10 +22,14 @@ MAX_IMAGE_PIXELS = 1024 * 1024  # ~1 megapixel
 
 CAPTION_PROMPT = "Describe this image in one sentence."
 
-CAPTION_WITH_NAMES_PROMPT = (
-    "Describe what is happening in this photo in one sentence. "
-    "The people in the photo are: {names}. "
-    "Use their names instead of generic terms like 'a man' or 'a person'."
+CAPTION_REFINE_PROMPT_SINGLE = (
+    "The person in this photo is named {names}. "
+    "Describe this photo in one English sentence using their exact name."
+)
+
+CAPTION_REFINE_PROMPT_MULTI = (
+    "The people in this photo are named {names}. "
+    "Describe this photo in one English sentence using their exact names."
 )
 
 
@@ -99,7 +103,16 @@ class Captioner:
                 logger.info("VLM captioner unloaded")
 
     def status(self) -> dict:
-        return {"loaded": self._pipeline is not None, "name": "Qwen2.5-VL Captioner"}
+        model_path = Path(settings.vlm_model_path)
+        if not model_path.is_absolute():
+            model_path = _PROJECT_ROOT / model_path
+        model_name = model_path.parent.name if model_path.name in ("INT4", "INT8", "FP16", "FP32") else model_path.name
+        return {
+            "loaded": self._pipeline is not None,
+            "name": "VL Captioner",
+            "model_name": model_name,
+            "device": settings.vlm_device,
+        }
 
     def generate(self, image_path: str) -> CaptionResult:
         """Generate an unconditional caption for an image."""
@@ -119,18 +132,24 @@ class Captioner:
         caption = str(result).strip()
         return CaptionResult(caption=caption, confidence=0.8)
 
-    def generate_with_names(self, image_path: str, names: list[str]) -> CaptionResult:
-        """Generate a caption conditioned on known person names.
+    def generate_with_names(
+        self, image_path: str, names: list[str], original_caption: str | None = None,
+    ) -> CaptionResult:
+        """Generate a caption that includes person names.
 
-        Uses a prompt that tells the VLM who the people are so it uses
-        their names instead of generic descriptions.
+        Uses a short, direct prompt that tells the VLM who is in the photo
+        and asks it to describe the scene using their names.
         """
         self._load()
 
         image_tensor = _load_image_as_tensor(image_path)
         config = self._gen_config()
 
-        prompt = CAPTION_WITH_NAMES_PROMPT.format(names=_format_names(names))
+        names_str = _format_names(names)
+        if len(names) == 1:
+            prompt = CAPTION_REFINE_PROMPT_SINGLE.format(names=names_str)
+        else:
+            prompt = CAPTION_REFINE_PROMPT_MULTI.format(names=names_str)
 
         with self._lock:
             result = self._pipeline.generate(

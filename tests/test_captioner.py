@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from image_search_app.ingestion.captioner import (
     CAPTION_PROMPT,
-    CAPTION_WITH_NAMES_PROMPT,
+    CAPTION_REFINE_PROMPT_MULTI,
+    CAPTION_REFINE_PROMPT_SINGLE,
     CaptionResult,
     Captioner,
     _format_names,
@@ -81,7 +82,10 @@ class TestCaptioner:
         mock_pipeline.generate.return_value = "Alice and Bob are standing on a beach"
         captioner._pipeline = mock_pipeline
 
-        result = captioner.generate_with_names("/fake/img.jpg", ["Alice", "Bob"])
+        result = captioner.generate_with_names(
+            "/fake/img.jpg", ["Alice", "Bob"],
+            original_caption="Two people are standing on a beach",
+        )
 
         assert result.caption == "Alice and Bob are standing on a beach"
         assert result.confidence == 0.85
@@ -89,7 +93,8 @@ class TestCaptioner:
         call_args = mock_pipeline.generate.call_args
         prompt_used = call_args.args[0]
         assert "Alice, Bob" in prompt_used
-        assert "Use their names" in prompt_used
+        # Multi-name prompt should be used
+        assert "people" in prompt_used.lower()
 
     @patch("image_search_app.ingestion.captioner._load_image_as_tensor")
     def test_generate_strips_whitespace(self, mock_load_img):
@@ -106,7 +111,7 @@ class TestCaptioner:
 
     @patch("image_search_app.ingestion.captioner._load_image_as_tensor")
     def test_generate_with_single_name(self, mock_load_img):
-        """Single name should work correctly."""
+        """Single name should use single-person prompt."""
         mock_load_img.return_value = MagicMock()
 
         captioner = Captioner()
@@ -119,4 +124,6 @@ class TestCaptioner:
         call_args = mock_pipeline.generate.call_args
         prompt_used = call_args.args[0]
         assert "Doglashi" in prompt_used
+        # Single-name prompt should use "person" not "people"
+        assert "person" in prompt_used.lower()
         assert result.caption == "Doglashi is waving at the camera"

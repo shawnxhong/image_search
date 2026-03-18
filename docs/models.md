@@ -8,7 +8,7 @@ All models run locally via OpenVINO. No cloud API calls. Models are stored in th
 |-------|---------|-----------|--------|------------|
 | Qwen3-4B-Instruct | Agent LLM (tool calling) | OpenVINO GenAI | GPU | N/A |
 | Qwen2.5-VL-3B-Instruct | Image captioning (VLM) | OpenVINO GenAI | GPU | N/A |
-| all-MiniLM-L6-v2 | Text embeddings | OpenVINO Core | CPU | 384-dim |
+| all-MiniLM-L6-v2 | Text embeddings | OpenVINO Core | GPU (configurable) | 384-dim |
 | face-detection-retail-0004 | Face bounding boxes | OpenVINO Core | CPU | N/A |
 | landmarks-regression-retail-0009 | Facial landmarks | OpenVINO Core | CPU | 5 points |
 | face-reidentification-retail-0095 | Face descriptors | OpenVINO Core | CPU | 512-dim |
@@ -47,11 +47,11 @@ Vision-language model for generating image captions.
 
 **Two modes:**
 1. **Unconditional:** `generate(image_path)` — "Describe this image in one sentence."
-2. **With names:** `generate_with_names(image_path, names)` — Includes person names in prompt for more specific captions after face labeling.
+2. **With names:** `generate_with_names(image_path, names)` — Uses a short, direct prompt telling the VLM who is in the photo and asking it to describe the scene using their names. Single-person and multi-person prompts are separate templates. This approach works reliably with the small INT4 model for both English and non-ASCII names.
 
 **Image preprocessing:**
 - Load via PIL, convert to RGB numpy array
-- Resize if either dimension exceeds 1120px (preserves aspect ratio)
+- Resize if pixel count exceeds ~1 megapixel (preserves aspect ratio)
 - Convert to `ov.Tensor` (NHWC uint8 format for GenAI VLM pipeline)
 
 ## Text Embeddings: all-MiniLM-L6-v2
@@ -65,7 +65,7 @@ Sentence-transformer model for encoding text into semantic vectors.
 - **Output:** 384-dimensional float vector
 - **Pooling:** Mean pooling over non-padding tokens
 - **Normalization:** L2-normalized
-- **Device:** CPU
+- **Device:** GPU (configurable via `text_embedding_device` setting, default GPU)
 
 **Auto-download:** If the OpenVINO model directory doesn't exist, exports from HuggingFace using `optimum-cli export openvino`.
 
@@ -98,7 +98,7 @@ Extracts a 512-dimensional face descriptor for identity matching.
 - **Input:** Aligned face crop
 - **Output:** 512-dim float vector (L2-normalized)
 
-**Identity matching:** Face descriptors are stored in ChromaDB's `face_identities` collection. During ingestion, each detected face is compared against known identities using cosine distance. Candidates (top-3 within threshold 0.8) are stored for user confirmation — the system never auto-assigns names.
+**Identity matching:** Face descriptors are stored in ChromaDB's `face_identities` collection. During ingestion, each detected face is compared against known identities using cosine distance. Candidates (top-3 within configurable `face_identity_threshold`, default 0.5) are stored for user confirmation — the system never auto-assigns names.
 
 **Auto-download:** Models downloaded via `omz_downloader` (Intel Open Model Zoo) if not present.
 

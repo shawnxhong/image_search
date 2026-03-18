@@ -13,6 +13,15 @@
   display: block;
 }
 
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
 .content {
   padding: 10px;
   font-size: 13px;

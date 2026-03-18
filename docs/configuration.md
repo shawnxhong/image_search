@@ -50,6 +50,7 @@ Uses `pydantic-settings` with environment variable prefix `IMG_SEARCH_`. Setting
 |---------|-------------|---------|-------------|
 | `text_embedding_model_name` | `IMG_SEARCH_TEXT_EMBEDDING_MODEL_NAME` | `sentence-transformers/all-MiniLM-L6-v2` | HuggingFace model ID (for auto-download) |
 | `text_embedding_model_dir` | `IMG_SEARCH_TEXT_EMBEDDING_MODEL_DIR` | `models/all-MiniLM-L6-v2-ov` | Local OpenVINO model directory |
+| `text_embedding_device` | `IMG_SEARCH_TEXT_EMBEDDING_DEVICE` | `GPU` | Inference device for embedding model (GPU / CPU) |
 | `embedding_dim` | `IMG_SEARCH_EMBEDDING_DIM` | `384` | Embedding vector dimensionality |
 
 ### Face Detection

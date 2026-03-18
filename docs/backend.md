@@ -54,12 +54,38 @@ entry --> assistant --> [has tool_requests?]
 You are a search assistant for a personal photo library.
 Guidelines:
 - Person by name → search_by_person
-- Visual content → search_by_caption (descriptive words only, strip names/dates/locations)
+- Visual content / scene descriptions (library, beach, park) → search_by_caption
 - Time period → search_by_time
-- Physical place → search_by_location
+- Geographic location (cities, states, countries from GPS) → search_by_location
+  (NOT for scene descriptions — use search_by_caption for those)
 - May call multiple tools in sequence
 - When done, say DONE (no Action/Action Input tags)
 ```
+
+The prompt includes few-shot examples clarifying scene vs location usage, e.g. "photos in a library" → `search_by_caption(query=library)`, not `search_by_location`.
+
+## Query Preprocessing
+
+**File:** `agent/langgraph_flow.py` — `preprocess_query()`
+
+Before entering the ReAct loop, non-English queries are translated to English using the LLM:
+
+1. Check if query contains non-ASCII characters (`_has_non_ascii()`)
+2. If yes, call the LLM with a translation prompt that:
+   - Translates descriptive words, scene descriptions, and location names to English
+   - Preserves person names **exactly** as-is (no transliteration or romanization)
+   - Example: `"小丽在实验室的照片"` → `"小丽 in a lab"`
+3. If translation fails or produces suspicious output (empty, too long), falls back to the original query
+
+This enables Chinese and other non-English queries to match English captions while keeping person names searchable in their original script.
+
+### Scene vs Location Distinction
+
+The system prompt and tool descriptions explicitly distinguish:
+- **Scene descriptions** (library, beach, park, kitchen) → `search_by_caption` (captions describe what's in the photo)
+- **Geographic locations** (New York, California, France) → `search_by_location` (GPS-derived metadata)
+
+When `search_by_location` returns zero results, it returns a hint suggesting `search_by_caption` instead, enabling the agent to self-correct.
 
 ## Search Tools
 
@@ -171,13 +197,13 @@ MatchExplanation:
 ## Data Flow Dependencies
 
 ```
-EmbeddingService (all-MiniLM-L6-v2, OpenVINO, CPU)
+EmbeddingService (all-MiniLM-L6-v2, OpenVINO, GPU by default)
     |
     v
 ChromaStore (cosine distance collections)
     |-- caption_embeddings  (caption text → 384-dim vectors)
     |-- image_embeddings    (placeholder)
-    +-- face_identities     (128-dim face descriptors, used in ingestion only)
+    +-- face_identities     (512-dim face descriptors, used in ingestion only)
 
 SQLite (ImageRecord, PersonRecord)
     |-- capture_timestamp            (used by time tool)

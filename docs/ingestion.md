@@ -77,7 +77,7 @@ Detects faces and extracts identity descriptors:
 1. **Detection** — face-detection-retail-0004 finds bounding boxes
 2. **Landmarks** — landmarks-regression-retail-0009 locates facial landmarks for alignment
 3. **ReID** — face-reidentification-retail-0095 extracts 512-dim face descriptors
-4. **Matching** — Each descriptor is compared against ChromaDB `face_identities` collection. Top-3 candidates within distance threshold 0.8 are stored (never auto-assigned).
+4. **Matching** — Each descriptor is compared against ChromaDB `face_identities` collection. Top-3 candidates within configurable distance threshold (`face_identity_threshold`, default 0.5) are stored (never auto-assigned).
 
 Returns `[FaceResult(face_id, bbox, confidence, descriptor, candidates)]`.
 
@@ -110,12 +110,15 @@ When all faces in an image are named or dismissed, **caption refinement** is tri
 ### `refine_after_labeling(image_id)`
 
 1. Loads named (non-dismissed) people, sorted left-to-right by bbox position
-2. Calls `Captioner.generate_with_names(image_path, names)` with prompt:
-   > "Describe what is happening... The people are: Alice, Bob. Use their names instead of generic terms."
+2. Calls `Captioner.generate_with_names(image_path, names, original_caption=original_caption)` with a short, direct prompt:
+   - Single person: `"The person in this photo is named {name}. Describe this photo in one English sentence using their exact name."`
+   - Multiple people: `"The people in this photo are named {names}. Describe this photo in one English sentence using their exact names."`
 3. Re-embeds the new caption → updates ChromaDB
 4. Updates `ImageRecord.caption` and sets status to `"ready"`
 
-This produces more specific, searchable captions like "Alice and Bob having dinner" instead of "Two people having dinner".
+This produces more specific, searchable captions like "Hank is standing in front of a bookshelf" instead of "A man is standing in front of a bookshelf".
+
+**Design note:** The prompt is intentionally short and direct. Complex rewrite prompts (asking the VLM to rewrite an existing caption with name substitution) are ignored by the small Qwen2.5-VL INT4 model — it re-describes the image instead. The short prompt reliably includes names in the output for both English and non-ASCII names.
 
 ## Face Identity Storage
 

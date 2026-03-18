@@ -9,6 +9,7 @@ import AgentLog from './components/AgentLog'
 import ResultsSection from './components/ResultsSection'
 import LibraryPanel from './components/LibraryPanel'
 import IngestPanel from './components/IngestPanel'
+import ImageLightbox from './components/ImageLightbox'
 import styles from './App.module.css'
 
 /** Check if models are ready for search. Returns warning message or null. */
@@ -46,6 +47,10 @@ export default function App() {
 
   // Agent activity
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([])
+
+  // Lightbox
+  const [lightboxPath, setLightboxPath] = useState<string | null>(null)
+  const handleImageClick = useCallback((filePath: string) => setLightboxPath(filePath), [])
 
   const handleModelStatusChange = useCallback((snap: ModelStatusSnapshot) => {
     modelStatusRef.current = snap
@@ -141,21 +146,27 @@ export default function App() {
                 items={solidResults}
                 thumbSize={thumbSize}
                 emptyText="No solid matches found."
+                onImageClick={handleImageClick}
               />
               <ResultsSection
                 title="Soft Matches"
                 items={softResults}
                 thumbSize={thumbSize}
                 emptyText="No additional soft matches."
+                onImageClick={handleImageClick}
               />
             </>
           )}
         </>
       )}
 
-      {activeTab === 'library' && <LibraryPanel />}
+      {activeTab === 'library' && <LibraryPanel onImageClick={handleImageClick} />}
 
-      {activeTab === 'ingest' && <IngestPanel checkModels={getIngestWarning} />}
+      {activeTab === 'ingest' && <IngestPanel checkModels={getIngestWarning} onImageClick={handleImageClick} />}
+
+      {lightboxPath && (
+        <ImageLightbox filePath={lightboxPath} onClose={() => setLightboxPath(null)} />
+      )}
     </main>
   )
 }

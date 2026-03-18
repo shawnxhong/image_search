@@ -88,9 +88,10 @@ class TestRefineAfterLabeling:
         pipeline = IngestionPipeline()
         new_caption = pipeline.refine_after_labeling(image_id)
 
-        # Verify captioner was called with names sorted by bbox x_min
+        # Verify captioner was called with names sorted by bbox x_min and original caption
         mock_captioner.generate_with_names.assert_called_once_with(
             file_path, ["Bob", "Alice"],  # Bob x=10, Alice x=200
+            original_caption="a man and a woman standing together",
         )
 
         assert new_caption == "Bob and Alice standing together on a beach"
@@ -240,4 +241,5 @@ class TestRefineAfterLabeling:
         # Should be sorted: Alice (x=10), Bob (x=150), Charlie (x=300)
         mock_captioner.generate_with_names.assert_called_once_with(
             file_path, ["Alice", "Bob", "Charlie"],
+            original_caption="three people standing",
         )

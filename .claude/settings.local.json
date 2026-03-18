@@ -166,7 +166,16 @@
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py -v --tb=short)",
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py tests/test_library.py -v --tb=short)",
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_query_preprocess.py -v --tb=short 2>&1)",
-      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_query_preprocess.py tests/test_search_improvements.py -v --tb=short)"
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_query_preprocess.py tests/test_search_improvements.py -v --tb=short)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py tests/test_query_preprocess.py tests/test_library.py -v --tb=short)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/ -v --tb=short -k \"not test_api_frontend and not test_noop and not test_search_agent\")",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_captioner.py::TestCaptioner::test_generate_with_names_includes_names_in_prompt -v --tb=long)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_captioner.py -v --tb=short)",
+      "Bash(C:/Users/53422/miniconda3/envs/image/python.exe -m pytest tests/test_caption_refinement.py -v)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_caption_refinement.py -v)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_caption_refinement.py tests/test_captioner.py -v 2>&1)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_vlm_caption_refine_integration.py -v -s 2>&1)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -c \"\nfrom image_search_app.ingestion.captioner import CAPTION_REFINE_PROMPT, _format_names\n\nprompt = CAPTION_REFINE_PROMPT.format\\(\n    original_caption='A man with a blue shirt is standing in front of a shelf with books and a computer monitor.',\n    names=_format_names\\(['Hank']\\),\n\\)\nprint\\('=== PROMPT ==='\\)\nprint\\(repr\\(prompt\\)\\)\nprint\\(\\)\nprint\\(prompt\\)\nprint\\(f'Length: {len\\(prompt\\)} chars'\\)\n\" 2>&1)"
     ]
   }
 }

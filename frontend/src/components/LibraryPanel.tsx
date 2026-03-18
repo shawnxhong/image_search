@@ -5,7 +5,11 @@ import { fetchLibrary } from '../api'
 import ImageCard from './ImageCard'
 import styles from './LibraryPanel.module.css'
 
-export default function LibraryPanel() {
+interface Props {
+  onImageClick?: (filePath: string) => void
+}
+
+export default function LibraryPanel({ onImageClick }: Props) {
   const [images, setImages] = useState<LibraryImageItem[]>([])
   const [total, setTotal] = useState(0)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -77,6 +81,7 @@ export default function LibraryPanel() {
                 state={img.state}
                 city={img.city}
                 thumbSize={thumbSize}
+                onImageClick={onImageClick}
               />
             ))}
           </div>

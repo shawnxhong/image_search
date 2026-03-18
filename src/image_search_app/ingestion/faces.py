@@ -127,7 +127,12 @@ class FaceRecognizer:
                 logger.info("Face detection pipeline unloaded")
 
     def status(self) -> dict:
-        return {"loaded": self._pipeline is not None, "name": "Face Detection"}
+        return {
+            "loaded": self._pipeline is not None,
+            "name": "Face Detection",
+            "model_name": "Intel OMZ Face Pipeline",
+            "device": "CPU",
+        }
 
     def detect(self, image_path: str) -> list[FaceDetection]:
         self._load()

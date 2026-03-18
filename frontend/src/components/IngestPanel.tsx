@@ -6,9 +6,10 @@ import styles from './IngestPanel.module.css'
 
 interface IngestPanelProps {
   checkModels?: () => string | null
+  onImageClick?: (filePath: string) => void
 }
 
-export default function IngestPanel({ checkModels }: IngestPanelProps) {
+export default function IngestPanel({ checkModels, onImageClick }: IngestPanelProps) {
   const [selectedPaths, setSelectedPaths] = useState<string[]>([])
   const [cards, setCards] = useState<IngestCardState[]>([])
   const [running, setRunning] = useState(false)
@@ -169,7 +170,7 @@ export default function IngestPanel({ checkModels }: IngestPanelProps) {
           </h2>
           <div className={styles.cardGrid}>
             {cards.map((card, i) => (
-              <IngestCard key={`${card.file_path}-${i}`} card={card} onUpdate={(u) => updateCard(i, u)} />
+              <IngestCard key={`${card.file_path}-${i}`} card={card} onUpdate={(u) => updateCard(i, u)} onImageClick={onImageClick} />
             ))}
           </div>
         </section>

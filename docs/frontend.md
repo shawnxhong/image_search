@@ -24,6 +24,7 @@ frontend/
 │   │   ├── IngestPanel.tsx             # Ingestion workflow
 │   │   ├── IngestCard.tsx              # Single image card with face labeling
 │   │   ├── LLMPanel.tsx                # Model load/unload controls
+│   │   ├── ImageLightbox.tsx           # Full-size image overlay
 │   │   └── *.module.css                # Component-scoped styles
 │   └── test-setup.ts                   # Vitest setup (testing-library matchers)
 ├── vite.config.ts                      # Build config + dev proxy
@@ -88,7 +89,18 @@ Reusable image card component with two rendering variants via discriminated unio
 - **`variant: 'search'`** — Shows score, file path, and match explanation. Used by `ResultsSection`.
 - **`variant: 'library'`** — Shows date, location (city/state/country), caption, and file path. Used by `LibraryPanel`.
 
-Both variants share the same thumbnail rendering (`/image-preview?path=...`, lazy-loaded, configurable size). Designed for future extension with additional variants.
+Both variants share the same thumbnail rendering (`/image-preview?path=...`, lazy-loaded, configurable size). Clicking any thumbnail opens the `ImageLightbox` for full-size viewing. Designed for future extension with additional variants.
+
+### ImageLightbox.tsx
+
+Full-size image overlay modal:
+- **Backdrop** — semi-transparent dark overlay, click to close
+- **Image** — full-size rendering at up to 95vw/95vh
+- **Close button** — red circular button with white X, positioned at the image's top-right corner
+- **Escape key** — closes the lightbox
+- **Body scroll lock** — prevents background scrolling while open
+
+Used across all three tabs (Search, Library, Ingest) via `onImageClick` prop passed through components.
 
 ### LibraryPanel.tsx
 
