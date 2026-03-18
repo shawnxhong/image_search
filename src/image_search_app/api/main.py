@@ -9,7 +9,7 @@ import logging
 
 from image_search_app.agent.graph import SearchAgent
 from image_search_app.config import settings
-from image_search_app.db import ImageRecord, PersonRecord, create_all, get_session
+from image_search_app.db import ImageRecord, PersonRecord, create_all, get_session, list_images_paginated
 from image_search_app.ingestion.pipeline import IngestionPipeline
 from image_search_app.tools.llm import get_llm_service, scan_available_models
 from image_search_app.vector.chroma_store import ChromaStore
@@ -24,6 +24,8 @@ from image_search_app.schemas import (
     ImageSearchRequest,
     IngestRequest,
     IngestResponse,
+    LibraryImageItem,
+    LibraryResponse,
     LLMAvailableResponse,
     LLMLoadRequest,
     LLMStatusResponse,
@@ -59,6 +61,27 @@ def index() -> FileResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/library", response_model=LibraryResponse)
+def library(
+    limit: int = Query(50, ge=1, le=200),
+    cursor: str | None = Query(None),
+) -> LibraryResponse:
+    """List all images sorted by date (most recent first), with cursor pagination."""
+    images, total = list_images_paginated(limit=limit, cursor=cursor)
+    items = [
+        LibraryImageItem(
+            image_id=img.image_id,
+            file_path=img.file_path,
+            caption=img.caption,
+            capture_timestamp=img.capture_timestamp,
+            ingestion_status=img.ingestion_status,
+        )
+        for img in images
+    ]
+    next_cursor = items[-1].image_id if len(items) == limit else None
+    return LibraryResponse(images=items, total=total, next_cursor=str(next_cursor) if next_cursor else None)
 
 
 @app.get("/image-preview")

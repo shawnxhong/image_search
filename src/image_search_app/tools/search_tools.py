@@ -7,6 +7,7 @@ from datetime import datetime
 
 from sqlalchemy import func, select
 
+from image_search_app.config import settings
 from image_search_app.db import ImageRecord, PersonRecord, get_session
 from image_search_app.tools.time_parser import TimeParser
 from image_search_app.vector.chroma_store import ChromaStore
@@ -92,13 +93,18 @@ TOOL_DEFINITIONS = [
         "function": {
             "name": "search_by_location",
             "description": (
-                "Find images that have GPS location metadata. "
-                "Use this when the query mentions a physical place or location."
+                "Find images taken at a specific location. "
+                "Use this when the query mentions a physical place, city, state, or country."
             ),
             "parameters": {
                 "type": "object",
-                "properties": {},
-                "required": [],
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "Location name to search for (city, state, or country).",
+                    },
+                },
+                "required": ["location"],
             },
         },
     },
@@ -114,11 +120,18 @@ def search_by_caption(
     store: ChromaStore | None = None,
     embeddings: EmbeddingService | None = None,
 ) -> list[dict]:
-    """Semantic search over image captions. Returns [{image_id, score}]."""
+    """Semantic search over image captions.
+
+    Returns all results with score >= solid_score_threshold, sorted by
+    score descending.  Falls back to top_k as an upper bound on the
+    number of ChromaDB results retrieved.
+    """
     if store is None:
         store = ChromaStore()
     if embeddings is None:
         embeddings = EmbeddingService()
+
+    threshold = settings.solid_score_threshold
 
     query_embedding = embeddings.embed_text(query)
     ids, distances = store.query_caption(query_embedding, top_k=top_k)
@@ -126,16 +139,26 @@ def search_by_caption(
     results = []
     for img_id, dist in zip(ids, distances):
         score = 1.0 - float(dist or 0.0)
+        if score < threshold:
+            continue
         results.append({"image_id": img_id, "score": round(score, 4)})
     return results
 
 
 def search_by_person(name: str) -> list[dict]:
-    """DB lookup for images containing a named person. Returns [{image_id, person_name}]."""
+    """DB lookup for images containing a named person.
+
+    Supports partial name matching: "Colin" matches "Colin Powell",
+    "Powell" matches "Colin Powell".  Returns [{image_id, person_name}].
+    """
+    search_term = name.strip().lower()
+    if not search_term:
+        return []
+
     with get_session() as session:
         rows = session.execute(
             select(PersonRecord.image_id, PersonRecord.name).where(
-                func.lower(PersonRecord.name) == name.strip().lower(),
+                func.lower(PersonRecord.name).contains(search_term),
                 PersonRecord.dismissed.is_(False),
             )
         ).all()
@@ -173,17 +196,38 @@ def search_by_time(description: str) -> list[dict]:
     return results
 
 
-def search_by_location() -> list[dict]:
-    """Find images that have GPS coordinates. Returns [{image_id, lat, lon}]."""
+def search_by_location(location: str = "") -> list[dict]:
+    """Find images taken at a specific location.
+
+    Searches country, state, and city fields (case-insensitive substring match).
+    Returns [{image_id, country, state, city}].
+    """
+    search_term = location.strip().lower()
+    if not search_term:
+        return []
+
+    from sqlalchemy import or_
+
     with get_session() as session:
         rows = session.execute(
-            select(ImageRecord.image_id, ImageRecord.lat, ImageRecord.lon).where(
-                ImageRecord.lat.isnot(None),
-                ImageRecord.lon.isnot(None),
+            select(
+                ImageRecord.image_id,
+                ImageRecord.country,
+                ImageRecord.state,
+                ImageRecord.city,
+            ).where(
+                or_(
+                    func.lower(ImageRecord.country).contains(search_term),
+                    func.lower(ImageRecord.state).contains(search_term),
+                    func.lower(ImageRecord.city).contains(search_term),
+                )
             )
         ).all()
 
-    return [{"image_id": img_id, "lat": lat, "lon": lon} for img_id, lat, lon in rows]
+    return [
+        {"image_id": img_id, "country": country, "state": state, "city": city}
+        for img_id, country, state, city in rows
+    ]
 
 
 # -- Dispatcher --
@@ -220,6 +264,6 @@ def execute_tool(
     elif name == "search_by_time":
         return search_by_time(description=arguments.get("description", ""))
     elif name == "search_by_location":
-        return search_by_location()
+        return search_by_location(location=arguments.get("location", ""))
 
     return []

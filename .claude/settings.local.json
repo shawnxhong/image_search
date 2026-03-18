@@ -139,7 +139,29 @@
       "Bash(\"/c/Users/53422/.conda/envs/image/python.exe\" -m pytest tests/test_time_parser.py tests/test_intent_parser.py tests/test_captioner.py -x -v)",
       "Bash(npx vitest:*)",
       "Bash(\"/c/Users/53422/.conda/envs/image/python.exe\" -m pytest tests/test_model_paths.py -v)",
-      "Bash(\"/c/Users/53422/.conda/envs/image/python.exe\" -m pytest tests/ -x -q --ignore=tests/test_api_frontend_routes.py --ignore=tests/test_noop_search.py)"
+      "Bash(\"/c/Users/53422/.conda/envs/image/python.exe\" -m pytest tests/ -x -q --ignore=tests/test_api_frontend_routes.py --ignore=tests/test_noop_search.py)",
+      "Bash(\"/c/Users/53422/.conda/envs/image/python.exe\" -c \"import geopy; print\\('geopy OK:', geopy.__version__\\)\" 2>&1)",
+      "Bash(\"/c/Users/53422/.conda/envs/image/python.exe\" -m pip install geopy)",
+      "Bash(\"/c/Users/53422/.conda/envs/image/python.exe\" -m pytest tests/test_search_improvements.py -v 2>&1)",
+      "Bash(conda run:*)",
+      "Bash(where.exe python:*)",
+      "Bash(cmd.exe /c \"conda activate image && python -m pytest tests/test_search_improvements.py -v\" 2>&1)",
+      "Bash(\"/c/Users/53422/miniconda3/envs/image/python.exe\" -m pytest tests/test_search_improvements.py -v 2>&1)",
+      "Read(//c/Users/53422/miniconda3/**)",
+      "Read(//c/Users/53422/anaconda3/**)",
+      "Read(//c/ProgramData/miniconda3/**)",
+      "Read(//c/ProgramData/anaconda3/**)",
+      "Bash(cmd.exe /c \"conda info --envs\" 2>&1)",
+      "Bash(cmd.exe /c \"conda info --envs 2>&1\")",
+      "Bash(powershell.exe -Command \"conda info --envs\" 2>&1)",
+      "Bash(powershell.exe -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\53422' -Filter 'python.exe' -Recurse -Depth 5 -ErrorAction SilentlyContinue | Select-Object -First 5 -ExpandProperty FullName\" 2>&1)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py -v 2>&1)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/ -v 2>&1)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py tests/test_model_paths.py tests/test_time_parser.py tests/test_chroma_store.py tests/test_embeddings.py tests/test_exif.py tests/test_faces.py tests/test_filters.py tests/test_captioner.py -v)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_search_improvements.py tests/test_model_paths.py -v)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_library.py -v 2>&1)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_library.py -v)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_library.py tests/test_search_improvements.py tests/test_model_paths.py tests/test_time_parser.py tests/test_chroma_store.py tests/test_embeddings.py tests/test_exif.py tests/test_faces.py tests/test_filters.py tests/test_captioner.py -v)"
     ]
   }
 }

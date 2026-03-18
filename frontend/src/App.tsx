@@ -7,6 +7,7 @@ import LLMPanel, { type ModelStatusSnapshot } from './components/LLMPanel'
 import SearchPanel from './components/SearchPanel'
 import AgentLog from './components/AgentLog'
 import ResultsSection from './components/ResultsSection'
+import LibraryPanel from './components/LibraryPanel'
 import IngestPanel from './components/IngestPanel'
 import styles from './App.module.css'
 
@@ -151,6 +152,8 @@ export default function App() {
           )}
         </>
       )}
+
+      {activeTab === 'library' && <LibraryPanel />}
 
       {activeTab === 'ingest' && <IngestPanel checkModels={getIngestWarning} />}
     </main>

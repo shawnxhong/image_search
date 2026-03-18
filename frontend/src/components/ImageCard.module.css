@@ -26,3 +26,13 @@
 .reason {
   margin: 6px 0 0;
 }
+
+.date {
+  font-weight: 600;
+  color: #374151;
+}
+
+.caption {
+  color: #4b5563;
+  margin: 2px 0;
+}

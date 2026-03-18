@@ -119,6 +119,20 @@ class DualListSearchResponse(BaseModel):
     soft_results: list[SearchResultItem]
 
 
+class LibraryImageItem(BaseModel):
+    image_id: UUID
+    file_path: str
+    caption: str | None = None
+    capture_timestamp: datetime | None = None
+    ingestion_status: str = "received"
+
+
+class LibraryResponse(BaseModel):
+    images: list[LibraryImageItem]
+    total: int
+    next_cursor: str | None = None
+
+
 class AgentStep(BaseModel):
     step_type: Literal["thinking", "tool_call", "tool_result", "done", "error"]
     tool_name: str | None = None

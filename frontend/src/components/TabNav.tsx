@@ -7,6 +7,7 @@ interface TabNavProps {
 
 const TABS = [
   { id: 'search', label: 'Search' },
+  { id: 'library', label: 'Library' },
   { id: 'ingest', label: 'Ingest' },
 ]
 

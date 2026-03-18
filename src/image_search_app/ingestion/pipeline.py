@@ -12,6 +12,7 @@ from image_search_app.db import ImageRecord, PersonRecord, get_session
 from image_search_app.ingestion.captioner import Captioner
 from image_search_app.ingestion.exif import extract_exif
 from image_search_app.ingestion.faces import FaceRecognizer
+from image_search_app.ingestion.geocode import GeoLocation, reverse_geocode
 from image_search_app.vector.chroma_store import ChromaStore
 from image_search_app.vector.embeddings import EmbeddingService
 
@@ -68,6 +69,12 @@ class IngestionPipeline:
         try:
             exif = extract_exif(path_str)
             logger.info("EXIF extracted for %s", image_id)
+
+            # Reverse geocode GPS coordinates if available
+            geo = GeoLocation()
+            if exif.lat is not None and exif.lon is not None:
+                geo = reverse_geocode(exif.lat, exif.lon)
+                logger.info("Geocoded %s: %s, %s, %s", image_id, geo.city, geo.state, geo.country)
 
             caption_result = self.captioner.generate(path_str)
             logger.info("Caption generated for %s: %s", image_id, caption_result.caption)
@@ -135,6 +142,9 @@ class IngestionPipeline:
             record.lat = exif.lat
             record.lon = exif.lon
             record.geo_confidence = exif.geo_confidence
+            record.country = geo.country
+            record.state = geo.state
+            record.city = geo.city
             record.caption = caption_result.caption
             record.caption_confidence = caption_result.confidence
             record.face_confidence = max((f.confidence for f in faces), default=0.0)

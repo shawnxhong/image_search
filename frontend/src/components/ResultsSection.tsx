@@ -21,7 +21,15 @@ export default function ResultsSection({ title, items, thumbSize, emptyText }: R
       ) : (
         <div className={styles.grid}>
           {items.map((item) => (
-            <ImageCard key={item.image_id} item={item} thumbSize={thumbSize} />
+            <ImageCard
+              key={item.image_id}
+              variant="search"
+              image_id={item.image_id}
+              file_path={item.file_path}
+              score={item.score}
+              explanation={item.explanation}
+              thumbSize={thumbSize}
+            />
           ))}
         </div>
       )}

@@ -26,6 +26,9 @@ class ImageRecord(Base):
     caption_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     face_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     geo_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    country: Mapped[str | None] = mapped_column(String, nullable=True)
+    state: Mapped[str | None] = mapped_column(String, nullable=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
     ingestion_status: Mapped[str] = mapped_column(String, default="received")
     caption_indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     image_indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -92,3 +95,65 @@ def upsert_image(file_path: str) -> ImageRecord:
 def list_images() -> Iterable[ImageRecord]:
     with get_session() as session:
         return session.scalars(select(ImageRecord)).all()
+
+
+def list_images_paginated(limit: int = 50, cursor: str | None = None) -> tuple[list[ImageRecord], int]:
+    """Return images sorted by capture_timestamp DESC (nulls last), with cursor pagination.
+
+    Returns (images, total_count).  The cursor is an image_id; when supplied,
+    results start after that image's position in the sort order.
+    """
+    from sqlalchemy import case, func
+
+    with get_session() as session:
+        total = session.scalar(select(func.count()).select_from(ImageRecord)) or 0
+
+        # Sort: images with timestamps first (DESC), then images without timestamps
+        has_ts = case(
+            (ImageRecord.capture_timestamp.isnot(None), 0),
+            else_=1,
+        )
+        ordering = [has_ts, ImageRecord.capture_timestamp.desc(), ImageRecord.image_id.desc()]
+
+        if cursor:
+            # Find the cursor row's position values
+            cursor_rec = session.scalar(
+                select(ImageRecord).where(ImageRecord.image_id == cursor)
+            )
+            if cursor_rec and cursor_rec.capture_timestamp is not None:
+                # After this timestamped row
+                from sqlalchemy import or_, and_, tuple_
+                stmt = (
+                    select(ImageRecord)
+                    .where(
+                        or_(
+                            ImageRecord.capture_timestamp < cursor_rec.capture_timestamp,
+                            and_(
+                                ImageRecord.capture_timestamp == cursor_rec.capture_timestamp,
+                                ImageRecord.image_id < cursor,
+                            ),
+                            ImageRecord.capture_timestamp.is_(None),
+                        )
+                    )
+                    .order_by(*ordering)
+                    .limit(limit)
+                )
+            elif cursor_rec:
+                # Cursor row has no timestamp — only get nulls after it
+                stmt = (
+                    select(ImageRecord)
+                    .where(
+                        ImageRecord.capture_timestamp.is_(None),
+                        ImageRecord.image_id < cursor,
+                    )
+                    .order_by(*ordering)
+                    .limit(limit)
+                )
+            else:
+                # Cursor not found, start from beginning
+                stmt = select(ImageRecord).order_by(*ordering).limit(limit)
+        else:
+            stmt = select(ImageRecord).order_by(*ordering).limit(limit)
+
+        images = list(session.scalars(stmt).all())
+        return images, total

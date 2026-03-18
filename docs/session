@@ -1,8 +1,0 @@
-claude --resume 1c871507-5c7f-4516-8b1c-d07df57d61ec
-
-uvicorn image_search_app.api.main:app --reload
-
-npm run dev
-
-/plugin marketplace add anthropics/claude-code
-/plugin install frontend-design@claude-code-plugins

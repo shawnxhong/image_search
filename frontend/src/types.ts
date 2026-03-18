@@ -19,6 +19,22 @@ export interface SearchResponse {
   soft_results: SearchResultItem[]
 }
 
+// Library types
+
+export interface LibraryImageItem {
+  image_id: string
+  file_path: string
+  caption: string | null
+  capture_timestamp: string | null
+  ingestion_status: string
+}
+
+export interface LibraryResponse {
+  images: LibraryImageItem[]
+  total: number
+  next_cursor: string | null
+}
+
 // Ingestion types
 
 export type IngestionStatus = 'pending' | 'processing' | 'ready' | 'pending_labels' | 'failed'

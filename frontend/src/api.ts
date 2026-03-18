@@ -1,4 +1,12 @@
-import type { QueryMode, SearchResponse, IngestResponse, UpdateFacesResponse, LLMStatus, LLMAvailable, AgentStep, AllModelsStatus, ModelServiceStatus } from './types'
+import type { QueryMode, SearchResponse, IngestResponse, UpdateFacesResponse, LLMStatus, LLMAvailable, AgentStep, AllModelsStatus, ModelServiceStatus, LibraryResponse } from './types'
+
+export async function fetchLibrary(limit = 50, cursor?: string): Promise<LibraryResponse> {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (cursor) params.set('cursor', cursor)
+  const res = await fetch(`/library?${params}`)
+  if (!res.ok) throw new Error(`Library fetch failed: ${res.status}`)
+  return res.json()
+}
 
 export async function search(
   mode: QueryMode,
