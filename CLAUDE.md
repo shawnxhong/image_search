@@ -31,7 +31,7 @@ ruff format --check src/ tests/
 Source lives in `src/image_search_app/` with these layers:
 
 - **api/** — FastAPI app (`main.py`). Mounts the React SPA, exposes `/ingest`, `/search/text`, `/search/text/stream` (SSE), `/search/image`, `/health`, `/models/*`, `/images/*` endpoints.
-- **agent/** — `SearchAgent` (`graph.py`) wraps the compiled LangGraph StateGraph (`langgraph_flow.py`). The ReAct agent uses Qwen3-4B to decide which search tools to call, reviews results, and can loop. Includes query preprocessing (non-English → English translation preserving person names).
+- **agent/** — `SearchAgent` (`graph.py`) wraps the compiled LangGraph StateGraph (`langgraph_flow.py`). The ReAct agent uses Qwen3-4B to decide which search tools to call, reviews results, and can loop.
 - **ingestion/** — Full pipeline: EXIF extraction, reverse geocoding, VLM captioning (Qwen2.5-VL), face detection (Intel OMZ models), embedding. Supports face labeling and caption refinement with names.
 - **tools/** — `search_tools.py` implements 4 search tools (caption, person, time, location). `llm.py` wraps the Qwen3 LLM. `time_parser.py` handles natural-language time ranges.
 - **vector/** — ChromaDB wrappers. `ChromaStore` manages collections (caption, image, face identity). `EmbeddingService` uses all-MiniLM-L6-v2 via OpenVINO. `RetrieverService` provides semantic search.
@@ -46,5 +46,5 @@ Source lives in `src/image_search_app/` with these layers:
 - All ML models (LLM, VLM, embeddings, face detection) run locally via OpenVINO. Lazy-loaded on demand via the Model Control Panel.
 - Config uses `pydantic-settings` with `IMG_SEARCH_` env prefix (e.g., `IMG_SEARCH_SQLITE_URL`).
 - The search agent distinguishes **scene descriptions** (library, beach, park → `search_by_caption`) from **geographic locations** (New York, France → `search_by_location`).
-- Non-English queries are preprocessed with the LLM to translate to English while preserving person names exactly.
+- The app is English-only. All queries, captions, and person names are expected to be in English.
 - Caption refinement after face labeling uses a short, direct VLM prompt to regenerate captions with person names included.

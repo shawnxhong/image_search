@@ -24,12 +24,12 @@ CAPTION_PROMPT = "Describe this image in one sentence."
 
 CAPTION_REFINE_PROMPT_SINGLE = (
     "The person in this photo is named {names}. "
-    "Describe this photo in one English sentence using their exact name."
+    "Describe this photo in one sentence using their name."
 )
 
 CAPTION_REFINE_PROMPT_MULTI = (
     "The people in this photo are named {names}. "
-    "Describe this photo in one English sentence using their exact names."
+    "Describe this photo in one sentence using their names."
 )
 
 

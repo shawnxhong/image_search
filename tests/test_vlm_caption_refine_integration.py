@@ -82,16 +82,3 @@ class TestVLMCaptionRefine:
             f"Original ({len(original_caption)} chars): {original_caption}\n"
             f"Refined  ({len(refined.caption)} chars): {refined.caption}"
         )
-
-    def test_refine_with_chinese_name(self, captioner):
-        """Refinement should preserve non-ASCII names exactly."""
-        original = captioner.generate(TEST_IMAGE)
-        original_caption = original.caption
-
-        refined = captioner.generate_with_names(
-            TEST_IMAGE, ["\u72d7\u5934\u841d\u8389"], original_caption=original_caption,
-        )
-
-        assert "\u72d7\u5934\u841d\u8389" in refined.caption, (
-            f"Refined caption should contain exact Chinese name but got: {refined.caption}"
-        )

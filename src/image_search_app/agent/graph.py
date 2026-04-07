@@ -12,7 +12,6 @@ from image_search_app.agent.langgraph_flow import (
     build_initial_state,
     build_search_graph,
     invoke_graph_with_steps,
-    preprocess_query,
 )
 from image_search_app.config import settings
 from image_search_app.schemas import AgentStep, DualListSearchResponse
@@ -27,7 +26,6 @@ class SearchAgent:
         self._graph = build_search_graph()
 
     def search_text(self, query: str, top_k: int | None = None) -> DualListSearchResponse:
-        query = preprocess_query(query)
         initial_state = build_initial_state(query)
         result = self._graph.invoke(
             initial_state,
@@ -50,13 +48,7 @@ class SearchAgent:
 
         def run_graph() -> None:
             try:
-                processed_query = preprocess_query(query)
-                if processed_query != query:
-                    step_queue.put(AgentStep(
-                        step_type="thinking",
-                        message=f"Translated query: {processed_query}",
-                    ))
-                initial_state = build_initial_state(processed_query)
+                initial_state = build_initial_state(query)
                 result = invoke_graph_with_steps(
                     self._graph,
                     initial_state,

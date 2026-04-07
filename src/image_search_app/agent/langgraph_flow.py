@@ -34,80 +34,6 @@ from image_search_app.vector.embeddings import EmbeddingService
 
 logger = logging.getLogger(__name__)
 
-# -- Query preprocessing: translate non-English queries for caption matching --
-
-_TRANSLATE_PROMPT = """\
-You are a query translator for an English-language photo search system. \
-Translate the user's search query into English so it can match English captions.
-
-Rules:
-- Translate descriptive words, scene descriptions, time expressions, and \
-location names into English.
-- CRITICAL: Person names must be copied exactly as-is from the input. \
-Do NOT transliterate, romanize, or convert names to pinyin. \
-If the input has a Chinese name like 小丽, the output must also have 小丽, \
-NOT Xiao Li or Xiaoli. This is because the database stores names in the \
-original script entered by the user.
-- If the query is already fully in English, return it unchanged.
-- Return ONLY the translated query, nothing else. No explanation.
-
-Examples:
-- Input: Tom at the beach
-  Output: Tom at the beach
-- Input: 小丽在实验室
-  Output: 小丽 in a lab
-  WRONG: Xiao Li in a lab
-- Input: 小丽和Tom在海边
-  Output: 小丽 and Tom at the beach
-  WRONG: Xiao Li and Tom at the beach
-- Input: 去年在公园的照片
-  Output: photos in the park last year
-- Input: 张伟在纽约
-  Output: 张伟 in New York
-  WRONG: Zhang Wei in New York
-- Input: 小丽在实验室的照片
-  Output: 小丽 in a lab
-  WRONG: Xiao Li in a lab\
-"""
-
-
-def _has_non_ascii(text: str) -> bool:
-    """Check if text contains non-ASCII characters (likely non-English)."""
-    return any(ord(c) > 127 for c in text)
-
-
-def preprocess_query(query: str) -> str:
-    """Translate a non-English query to English, preserving person names.
-
-    If the query is already ASCII-only, returns it unchanged (no LLM call).
-    Uses a lightweight LLM call without tool-calling mode.
-    """
-    if not _has_non_ascii(query):
-        return query
-
-    llm = get_llm_service()
-    messages = [
-        {"role": "system", "content": _TRANSLATE_PROMPT},
-        {"role": "user", "content": query},
-    ]
-
-    try:
-        response = llm.chat(messages=messages)
-        translated = strip_thinking(response).strip()
-        # Sanity check: if LLM returned empty or very long response, use original
-        if not translated or len(translated) > len(query) * 3:
-            logger.warning(
-                "Query translation returned suspicious result, using original: %r -> %r",
-                query, translated,
-            )
-            return query
-        logger.info("Query translated: %r -> %r", query, translated)
-        return translated
-    except Exception:
-        logger.exception("Query translation failed, using original query")
-        return query
-
-
 SYSTEM_PROMPT = """\
 You are a search assistant for a personal photo library. Given a user query, \
 decide which search tools to call to find relevant images.
@@ -128,6 +54,9 @@ use search_by_caption instead -- the captions describe what is in the photo.
 Action/Action Input tags. Just say DONE.
 
 Examples:
+- Query: Tom
+  Tools: search_by_person(name=Tom)
+
 - Query: Alice at the beach in 2024
   Tools: search_by_person(name=Alice), search_by_caption(query=beach), \
 search_by_time(description=2024)

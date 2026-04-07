@@ -113,11 +113,10 @@ export default function IngestCard({ card, onUpdate, onImageClick }: IngestCardP
   }
 
   const showDetails = card.status === 'ready' || card.status === 'pending_labels'
-  const showThumb = showDetails || card.status === 'failed'
 
   return (
     <article className={styles.card}>
-      {showThumb ? (
+      <div className={styles.thumbWrap}>
         <img
           className={`${styles.thumb} ${onImageClick ? styles.clickable : ''}`}
           src={`/image-preview?path=${encodeURIComponent(card.file_path)}`}
@@ -125,11 +124,12 @@ export default function IngestCard({ card, onUpdate, onImageClick }: IngestCardP
           loading="lazy"
           onClick={onImageClick ? () => onImageClick(card.file_path) : undefined}
         />
-      ) : (
-        <div className={styles.thumbPlaceholder}>
-          {card.status === 'processing' && <span className={styles.spinner} />}
-        </div>
-      )}
+        {(card.status === 'pending' || card.status === 'processing') && (
+          <div className={styles.thumbOverlay}>
+            {card.status === 'processing' && <span className={styles.spinner} />}
+          </div>
+        )}
+      </div>
 
       <div className={styles.body}>
         <div className={styles.filePath}>{card.file_path}</div>

@@ -66,19 +66,6 @@ The prompt includes few-shot examples clarifying scene vs location usage, e.g. "
 
 ## Query Preprocessing
 
-**File:** `agent/langgraph_flow.py` — `preprocess_query()`
-
-Before entering the ReAct loop, non-English queries are translated to English using the LLM:
-
-1. Check if query contains non-ASCII characters (`_has_non_ascii()`)
-2. If yes, call the LLM with a translation prompt that:
-   - Translates descriptive words, scene descriptions, and location names to English
-   - Preserves person names **exactly** as-is (no transliteration or romanization)
-   - Example: `"小丽在实验室的照片"` → `"小丽 in a lab"`
-3. If translation fails or produces suspicious output (empty, too long), falls back to the original query
-
-This enables Chinese and other non-English queries to match English captions while keeping person names searchable in their original script.
-
 ### Scene vs Location Distinction
 
 The system prompt and tool descriptions explicitly distinguish:

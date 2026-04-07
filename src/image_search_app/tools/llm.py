@@ -210,7 +210,7 @@ class LLMService:
             )
 
         config = ov_genai.GenerationConfig()
-        config.max_new_tokens = 512
+        config.max_new_tokens = 2048
         config.do_sample = False
 
         result = self._pipeline.generate(prompt, config)

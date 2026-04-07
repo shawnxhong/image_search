@@ -111,14 +111,14 @@ When all faces in an image are named or dismissed, **caption refinement** is tri
 
 1. Loads named (non-dismissed) people, sorted left-to-right by bbox position
 2. Calls `Captioner.generate_with_names(image_path, names, original_caption=original_caption)` with a short, direct prompt:
-   - Single person: `"The person in this photo is named {name}. Describe this photo in one English sentence using their exact name."`
-   - Multiple people: `"The people in this photo are named {names}. Describe this photo in one English sentence using their exact names."`
+   - Single person: `"The person in this photo is named {name}. Describe this photo in one sentence using their name."`
+   - Multiple people: `"The people in this photo are named {names}. Describe this photo in one sentence using their names."`
 3. Re-embeds the new caption → updates ChromaDB
 4. Updates `ImageRecord.caption` and sets status to `"ready"`
 
 This produces more specific, searchable captions like "Hank is standing in front of a bookshelf" instead of "A man is standing in front of a bookshelf".
 
-**Design note:** The prompt is intentionally short and direct. Complex rewrite prompts (asking the VLM to rewrite an existing caption with name substitution) are ignored by the small Qwen2.5-VL INT4 model — it re-describes the image instead. The short prompt reliably includes names in the output for both English and non-ASCII names.
+**Design note:** The prompt is intentionally short and direct. Complex rewrite prompts (asking the VLM to rewrite an existing caption with name substitution) are ignored by the small Qwen2.5-VL INT4 model — it re-describes the image instead. The short prompt reliably includes names in the output.
 
 ## Face Identity Storage
 

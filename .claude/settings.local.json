@@ -175,7 +175,9 @@
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_caption_refinement.py -v)",
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_caption_refinement.py tests/test_captioner.py -v 2>&1)",
       "Bash(/c/Users/53422/.conda/envs/image/python.exe -m pytest tests/test_vlm_caption_refine_integration.py -v -s 2>&1)",
-      "Bash(/c/Users/53422/.conda/envs/image/python.exe -c \"\nfrom image_search_app.ingestion.captioner import CAPTION_REFINE_PROMPT, _format_names\n\nprompt = CAPTION_REFINE_PROMPT.format\\(\n    original_caption='A man with a blue shirt is standing in front of a shelf with books and a computer monitor.',\n    names=_format_names\\(['Hank']\\),\n\\)\nprint\\('=== PROMPT ==='\\)\nprint\\(repr\\(prompt\\)\\)\nprint\\(\\)\nprint\\(prompt\\)\nprint\\(f'Length: {len\\(prompt\\)} chars'\\)\n\" 2>&1)"
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe -c \"\nfrom image_search_app.ingestion.captioner import CAPTION_REFINE_PROMPT, _format_names\n\nprompt = CAPTION_REFINE_PROMPT.format\\(\n    original_caption='A man with a blue shirt is standing in front of a shelf with books and a computer monitor.',\n    names=_format_names\\(['Hank']\\),\n\\)\nprint\\('=== PROMPT ==='\\)\nprint\\(repr\\(prompt\\)\\)\nprint\\(\\)\nprint\\(prompt\\)\nprint\\(f'Length: {len\\(prompt\\)} chars'\\)\n\" 2>&1)",
+      "Bash(/c/Users/53422/.conda/envs/image/python.exe:*)",
+      "Bash(npx vite:*)"
     ]
   }
 }
