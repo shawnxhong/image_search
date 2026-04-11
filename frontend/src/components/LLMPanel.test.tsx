@@ -3,29 +3,30 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import LLMPanel from './LLMPanel'
 import type { ModelStatusSnapshot } from './LLMPanel'
 import * as api from '../api'
+import type { AllModelsStatus, LLMAvailable, LLMStatus } from '../types'
 
 vi.mock('../api')
 const mockedApi = vi.mocked(api)
 
-const UNLOADED_STATUS = { loaded: false, model_path: null, model_name: null, device: null }
-const LOADED_STATUS = { loaded: true, model_path: '/models/Qwen3-4B', model_name: 'Qwen3-4B', device: 'GPU' }
-const AVAILABLE = { models: ['Qwen3-4B', 'Llama-7B'], devices: ['CPU', 'GPU'] }
+const UNLOADED_STATUS: LLMStatus = { loaded: false, model_path: null, model_name: null, device: null }
+const LOADED_STATUS: LLMStatus = { loaded: true, model_path: '/models/Qwen3-4B', model_name: 'Qwen3-4B', device: 'GPU' }
+const AVAILABLE: LLMAvailable = { models: ['Qwen3-4B', 'Llama-7B'], devices: ['CPU', 'GPU'] }
 
-const ALL_UNLOADED = {
+const ALL_UNLOADED: AllModelsStatus = {
   llm: UNLOADED_STATUS,
   vlm: { loaded: false, name: 'VL Captioner' },
   embeddings: { loaded: false, name: 'Embeddings' },
   face_detection: { loaded: false, name: 'Face Detection' },
 }
 
-const ALL_LOADED = {
+const ALL_LOADED: AllModelsStatus = {
   llm: LOADED_STATUS,
   vlm: { loaded: true, name: 'VL Captioner' },
   embeddings: { loaded: true, name: 'Embeddings' },
   face_detection: { loaded: true, name: 'Face Detection' },
 }
 
-function setupDefaultMocks(llmStatus = UNLOADED_STATUS, allModels = ALL_UNLOADED) {
+function setupDefaultMocks(llmStatus: LLMStatus = UNLOADED_STATUS, allModels: AllModelsStatus = ALL_UNLOADED) {
   mockedApi.fetchLLMStatus.mockResolvedValue(llmStatus)
   mockedApi.fetchLLMAvailable.mockResolvedValue(AVAILABLE)
   mockedApi.fetchAllModelsStatus.mockResolvedValue(allModels)

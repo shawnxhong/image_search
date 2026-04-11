@@ -15,6 +15,8 @@ from image_search_app.agent.langgraph_flow import (
 )
 from image_search_app.config import settings
 from image_search_app.schemas import AgentStep, DualListSearchResponse
+from image_search_app.vector.chroma_store import ChromaStore
+from image_search_app.vector.embeddings import EmbeddingService
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ class SearchAgent:
             config={"recursion_limit": settings.llm_max_agent_iterations * 2 + 2},
         )
         tool_results = result.get("tool_results", {})
-        return assemble_response(tool_results)
+        return assemble_response(tool_results, query=query, store=ChromaStore(), embeddings=EmbeddingService())
 
     def search_text_stream(
         self, query: str, top_k: int | None = None,
@@ -56,7 +58,7 @@ class SearchAgent:
                     recursion_limit=settings.llm_max_agent_iterations * 2 + 2,
                 )
                 tool_results = result.get("tool_results", {})
-                response = assemble_response(tool_results)
+                response = assemble_response(tool_results, query=query, store=ChromaStore(), embeddings=EmbeddingService())
                 step_queue.put(AgentStep(step_type="done", message="Search complete"))
                 step_queue.put(response)
             except Exception as exc:

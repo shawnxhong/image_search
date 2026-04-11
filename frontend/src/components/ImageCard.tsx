@@ -12,6 +12,12 @@ interface BaseProps {
 interface SearchProps extends BaseProps {
   variant: 'search'
   score: number
+  showScore: boolean
+  caption: string | null
+  capture_timestamp: string | null
+  country: string | null
+  state: string | null
+  city: string | null
   explanation: MatchExplanation | null
 }
 
@@ -53,9 +59,23 @@ export default function ImageCard(props: ImageCardProps) {
       <div className={styles.content}>
         {props.variant === 'search' && (
           <>
-            <div><strong>Score:</strong> {props.score.toFixed(4)}</div>
             <div className={styles.muted}>{props.file_path}</div>
+            <div className={styles.caption}>{props.caption || 'No description'}</div>
             <p className={styles.reason}>{props.explanation?.reason || 'No explanation'}</p>
+            {props.showScore && (
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Score</span>
+                <span>{props.score.toFixed(4)}</span>
+              </div>
+            )}
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>Time</span>
+              <span>{formatDate(props.capture_timestamp)}</span>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaLabel}>Place</span>
+              <span>{formatLocation(props.city, props.state, props.country) || 'No place'}</span>
+            </div>
           </>
         )}
         {props.variant === 'library' && (

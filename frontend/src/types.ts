@@ -11,6 +11,11 @@ export interface SearchResultItem {
   image_id: string
   file_path: string
   score: number
+  caption: string | null
+  capture_timestamp: string | null
+  country: string | null
+  state: string | null
+  city: string | null
   explanation: MatchExplanation
 }
 

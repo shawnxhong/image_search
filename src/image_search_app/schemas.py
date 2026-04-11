@@ -111,6 +111,11 @@ class SearchResultItem(BaseModel):
     image_id: UUID
     file_path: str
     score: float
+    caption: str | None = None
+    capture_timestamp: datetime | None = None
+    country: str | None = None
+    state: str | None = None
+    city: str | None = None
     explanation: MatchExplanation
 
 

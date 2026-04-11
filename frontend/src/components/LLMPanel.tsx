@@ -35,6 +35,8 @@ interface Props {
 }
 
 export default function LLMPanel({ activeTab, onStatusChange }: Props) {
+  const [collapsed, setCollapsed] = useState(false)
+
   // LLM state (has model/device selection)
   const [llmStatus, setLlmStatus] = useState<LLMStatus>({
     loaded: false,
@@ -298,7 +300,20 @@ export default function LLMPanel({ activeTab, onStatusChange }: Props) {
 
   return (
     <section className={styles.panel}>
-      <h2>Model Control</h2>
+      <div className={styles.panelHeader}>
+        <h2>Model Control</h2>
+        <button
+          type="button"
+          className={styles.collapseBtn}
+          onClick={() => setCollapsed((prev) => !prev)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand model controls' : 'Collapse model controls'}
+        >
+          <span className={`${styles.arrow} ${collapsed ? styles.arrowCollapsed : ''}`} aria-hidden="true">
+            ▾
+          </span>
+        </button>
+      </div>
 
       {hint && <p className={styles.hint}>{hint}</p>}
       {error && <p className={styles.error}>{error}</p>}
@@ -320,138 +335,144 @@ export default function LLMPanel({ activeTab, onStatusChange }: Props) {
         </button>
       </div>
 
-      {/* LLM row — has model/device selection */}
-      <div className={styles.modelRow}>
-        <span data-testid="llm-indicator" className={indicatorClass(llmStatus.loaded, !!busy.llm)} />
-        <span className={styles.modelLabel}>LLM</span>
-        <span data-testid="llm-status-text" className={styles.modelInfo}>
-          {busy.llm
-            ? llmStatus.loaded
-              ? 'Unloading...'
-              : `Loading ${selectedModel}...`
-            : llmStatus.loaded
-              ? `${llmStatus.model_name} on ${llmStatus.device}`
-              : 'Not loaded'}
-        </span>
-        <select
-          className={styles.inlineSelect}
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          disabled={!!busy.llm || llmStatus.loaded}
-        >
-          {available.models.length === 0 && <option value="">No models</option>}
-          {available.models.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <select
-          className={styles.inlineSelect}
-          value={selectedDevice}
-          onChange={(e) => setSelectedDevice(e.target.value)}
-          disabled={!!busy.llm || llmStatus.loaded}
-        >
-          {available.devices.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-        <button
-          className={styles.loadBtn}
-          onClick={handleLLMLoad}
-          disabled={!!busy.llm || llmStatus.loaded || !selectedModel}
-        >
-          Load
-        </button>
-        <button
-          className={styles.unloadBtn}
-          onClick={handleLLMUnload}
-          disabled={!!busy.llm || !llmStatus.loaded}
-        >
-          Unload
-        </button>
-      </div>
-
-      {/* VLM and Embeddings rows — model/device display with selection */}
-      {(['vlm', 'embeddings'] as ModelKey[]).map((key) => {
-        const st = modelStatus[key]
-        const modelName = st.model_name || st.name
-        const device = st.device || 'CPU'
-        return (
-          <div key={key} className={styles.modelRow}>
-            <span className={indicatorClass(st.loaded, !!busy[key])} />
-            <span className={styles.modelLabel}>{MODEL_LABELS[key]}</span>
-            <span data-testid={`${key}-status-text`} className={styles.modelInfo}>
-              {busy[key]
-                ? st.loaded
+      {!collapsed && (
+        <>
+          {/* LLM row — has model/device selection */}
+          <div className={styles.modelRow}>
+            <span data-testid="llm-indicator" className={indicatorClass(llmStatus.loaded, !!busy.llm)} />
+            <span className={styles.modelLabel}>LLM</span>
+            <span data-testid="llm-status-text" className={styles.modelInfo}>
+              {busy.llm
+                ? llmStatus.loaded
                   ? 'Unloading...'
-                  : `Loading ${modelName}...`
-                : st.loaded
-                  ? `${modelName} on ${device}`
+                  : `Loading ${selectedModel}...`
+                : llmStatus.loaded
+                  ? `${llmStatus.model_name} on ${llmStatus.device}`
                   : 'Not loaded'}
             </span>
             <select
               className={styles.inlineSelect}
-              defaultValue={modelName}
-              disabled
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={!!busy.llm || llmStatus.loaded}
             >
-              <option value={modelName}>{modelName}</option>
+              {available.models.length === 0 && <option value="">No models</option>}
+              {available.models.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
             </select>
             <select
               className={styles.inlineSelect}
-              defaultValue={device}
-              disabled
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+              disabled={!!busy.llm || llmStatus.loaded}
             >
-              <option value={device}>{device}</option>
+              {available.devices.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
             </select>
             <button
               className={styles.loadBtn}
-              onClick={() => handleModelLoad(key)}
-              disabled={!!busy[key] || st.loaded}
+              onClick={handleLLMLoad}
+              disabled={!!busy.llm || llmStatus.loaded || !selectedModel}
             >
               Load
             </button>
             <button
               className={styles.unloadBtn}
-              onClick={() => handleModelUnload(key)}
-              disabled={!!busy[key] || !st.loaded}
+              onClick={handleLLMUnload}
+              disabled={!!busy.llm || !llmStatus.loaded}
             >
               Unload
             </button>
           </div>
-        )
-      })}
 
-      {/* Face Detection row — status display only */}
-      <div className={styles.modelRow}>
-        <span className={indicatorClass(modelStatus.face_detection.loaded, !!busy.face_detection)} />
-        <span className={styles.modelLabel}>{MODEL_LABELS.face_detection}</span>
-        <span data-testid="face_detection-status-text" className={styles.modelInfo}>
-          {busy.face_detection
-            ? modelStatus.face_detection.loaded
-              ? 'Unloading...'
-              : `Loading ${modelStatus.face_detection.model_name || 'models'}...`
-            : modelStatus.face_detection.loaded
-              ? `${modelStatus.face_detection.model_name || 'Intel OMZ Face Pipeline'} on ${modelStatus.face_detection.device || 'CPU'}`
-              : 'Not loaded'}
-        </span>
-        <button
-          className={styles.loadBtn}
-          onClick={() => handleModelLoad('face_detection')}
-          disabled={!!busy.face_detection || modelStatus.face_detection.loaded}
-        >
-          Load
-        </button>
-        <button
-          className={styles.unloadBtn}
-          onClick={() => handleModelUnload('face_detection')}
-          disabled={!!busy.face_detection || !modelStatus.face_detection.loaded}
-        >
-          Unload
-        </button>
-      </div>
+          {/* VLM and Embeddings rows — model/device display with selection */}
+          {(['vlm', 'embeddings'] as ModelKey[]).map((key) => {
+            const st = modelStatus[key]
+            const modelName = st.model_name || st.name
+            const device = st.device || 'CPU'
+            return (
+              <div key={key} className={styles.modelRow}>
+                <span className={indicatorClass(st.loaded, !!busy[key])} />
+                <span className={styles.modelLabel}>{MODEL_LABELS[key]}</span>
+                <span data-testid={`${key}-status-text`} className={styles.modelInfo}>
+                  {busy[key]
+                    ? st.loaded
+                      ? 'Unloading...'
+                      : `Loading ${modelName}...`
+                    : st.loaded
+                      ? `${modelName} on ${device}`
+                      : 'Not loaded'}
+                </span>
+                <select
+                  className={styles.inlineSelect}
+                  defaultValue={modelName}
+                  disabled
+                >
+                  <option value={modelName}>{modelName}</option>
+                </select>
+                <select
+                  className={styles.inlineSelect}
+                  defaultValue={device}
+                  disabled
+                >
+                  <option value={device}>{device}</option>
+                </select>
+                <button
+                  className={styles.loadBtn}
+                  onClick={() => handleModelLoad(key)}
+                  disabled={!!busy[key] || st.loaded}
+                >
+                  Load
+                </button>
+                <button
+                  className={styles.unloadBtn}
+                  onClick={() => handleModelUnload(key)}
+                  disabled={!!busy[key] || !st.loaded}
+                >
+                  Unload
+                </button>
+              </div>
+            )
+          })}
+
+          {/* Face Detection row — aligned to same grid as the other model rows */}
+          <div className={styles.modelRow}>
+            <span className={indicatorClass(modelStatus.face_detection.loaded, !!busy.face_detection)} />
+            <span className={styles.modelLabel}>{MODEL_LABELS.face_detection}</span>
+            <span data-testid="face_detection-status-text" className={styles.modelInfo}>
+              {busy.face_detection
+                ? modelStatus.face_detection.loaded
+                  ? 'Unloading...'
+                  : `Loading ${modelStatus.face_detection.model_name || 'models'}...`
+                : modelStatus.face_detection.loaded
+                  ? `${modelStatus.face_detection.model_name || 'Intel OMZ Face Pipeline'} on ${modelStatus.face_detection.device || 'CPU'}`
+                  : 'Not loaded'}
+            </span>
+            <span className={styles.inlinePlaceholder} aria-hidden="true" />
+            <span className={styles.inlinePlaceholder} aria-hidden="true" />
+            <button
+              className={styles.loadBtn}
+              onClick={() => handleModelLoad('face_detection')}
+              disabled={!!busy.face_detection || modelStatus.face_detection.loaded}
+            >
+              Load
+            </button>
+            <button
+              className={styles.unloadBtn}
+              onClick={() => handleModelUnload('face_detection')}
+              disabled={!!busy.face_detection || !modelStatus.face_detection.loaded}
+            >
+              Unload
+            </button>
+          </div>
+        </>
+      )}
     </section>
   )
 }

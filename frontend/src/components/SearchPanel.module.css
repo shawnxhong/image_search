@@ -1,14 +1,36 @@
 .panel {
   background: #fff;
   border-radius: 12px;
-  padding: 16px;
+  padding: clamp(14px, 2vw, 20px);
   margin-bottom: 16px;
   border: 1px solid #e5e7eb;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.header h2 {
+  margin: 0;
+}
+
+.modeTag {
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 
@@ -26,6 +48,8 @@
   border-radius: 8px;
   padding: 10px;
   font-size: 14px;
+  width: 100%;
+  min-width: 0;
 }
 
 .field input:disabled {
@@ -63,6 +87,7 @@
   margin-bottom: 10px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -82,6 +107,11 @@
 }
 
 @media (max-width: 780px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .row {
     grid-template-columns: 1fr;
   }

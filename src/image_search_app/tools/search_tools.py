@@ -25,6 +25,34 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "search_by_person_count",
+            "description": (
+                "Find images by the number of people detected in them. "
+                "Use this when the query mentions a count of people: "
+                "'solo', 'alone', 'just one person' → count=1; "
+                "'couple', 'two people', 'pair' → count=2; "
+                "'group', 'crowd', 'many people' → min_count=4; "
+                "'no people', 'nobody', 'empty scene' → count=0. "
+                "Do NOT combine with search_by_person unless a specific name is also mentioned."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "description": "Exact number of people required. Use for specific counts like 0, 1, 2, 3.",
+                    },
+                    "min_count": {
+                        "type": "integer",
+                        "description": "Minimum number of people. Use for 'group', 'crowd', 'many people'.",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "search_by_caption",
             "description": (
                 "Semantic search over image captions. Use this when the query describes "
@@ -117,6 +145,44 @@ TOOL_DEFINITIONS = [
 
 
 # -- Tool implementations --
+
+
+def search_by_person_count(
+    count: int | None = None,
+    min_count: int | None = None,
+) -> list[dict]:
+    """Find images by number of detected (non-dismissed) people.
+
+    Supports exact count (count=N) and minimum count (min_count=N).
+    count=0 returns images with no detected people at all.
+    """
+    with get_session() as session:
+        if count == 0:
+            # Images that have no PersonRecord rows at all
+            subq = select(PersonRecord.image_id).where(
+                PersonRecord.dismissed.is_(False)
+            ).distinct()
+            rows = session.execute(
+                select(ImageRecord.image_id).where(
+                    ImageRecord.image_id.not_in(subq)
+                )
+            ).all()
+            return [{"image_id": row[0]} for row in rows]
+
+        # Count non-dismissed faces per image
+        count_col = func.count(PersonRecord.face_id).label("face_count")
+        stmt = (
+            select(PersonRecord.image_id, count_col)
+            .where(PersonRecord.dismissed.is_(False))
+            .group_by(PersonRecord.image_id)
+        )
+        if count is not None:
+            stmt = stmt.having(count_col == count)
+        elif min_count is not None:
+            stmt = stmt.having(count_col >= min_count)
+
+        rows = session.execute(stmt).all()
+    return [{"image_id": row[0], "person_count": row[1]} for row in rows]
 
 
 def search_by_caption(
@@ -259,6 +325,7 @@ def search_by_location(location: str = "") -> list[dict]:
 
 # Map of tool name -> callable
 TOOL_DISPATCH: dict[str, callable] = {
+    "search_by_person_count": search_by_person_count,
     "search_by_caption": search_by_caption,
     "search_by_person": search_by_person,
     "search_by_time": search_by_time,
@@ -277,7 +344,12 @@ def execute_tool(
         logger.warning("Unknown tool: %s", name)
         return []
 
-    if name == "search_by_caption":
+    if name == "search_by_person_count":
+        return search_by_person_count(
+            count=arguments.get("count"),
+            min_count=arguments.get("min_count"),
+        )
+    elif name == "search_by_caption":
         return search_by_caption(
             query=arguments.get("query", ""),
             top_k=arguments.get("top_k", 10),

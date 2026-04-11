@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
-import type { AgentStep, QueryMode, SearchResultItem } from './types'
+import type { AgentStep, SearchResultItem } from './types'
 import { type ThumbnailSize, DEFAULT_THUMBNAIL_SIZE } from './config'
-import { search, searchTextStream } from './api'
+import { searchTextStream } from './api'
 import TabNav from './components/TabNav'
 import LLMPanel, { type ModelStatusSnapshot } from './components/LLMPanel'
 import SearchPanel from './components/SearchPanel'
@@ -45,6 +45,9 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
 
+  // Display options
+  const [showScore, setShowScore] = useState(false)
+
   // Agent activity
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([])
 
@@ -65,18 +68,12 @@ export default function App() {
   }, [])
 
   async function handleSearch(
-    mode: QueryMode,
     textQuery: string,
-    imagePath: string,
     topK: number,
     size: ThumbnailSize,
   ) {
-    if ((mode === 'text' || mode === 'image+text') && !textQuery.trim()) {
+    if (!textQuery.trim()) {
       setStatus('Please enter a text query.')
-      return
-    }
-    if ((mode === 'image' || mode === 'image+text') && !imagePath.trim()) {
-      setStatus('Please enter an image path.')
       return
     }
 
@@ -88,31 +85,20 @@ export default function App() {
     setSoftResults([])
 
     try {
-      if (mode === 'text') {
-        // Use streaming endpoint for text search
-        await searchTextStream(
-          textQuery.trim(),
-          topK,
-          (step) => {
-            setAgentSteps((prev) => [...prev, step])
-          },
-          (data) => {
-            const solidIds = new Set(data.solid_results.map((r) => r.image_id))
-            const dedupedSoft = data.soft_results.filter((r) => !solidIds.has(r.image_id))
-            setSolidResults(data.solid_results.slice(0, topK))
-            setSoftResults(dedupedSoft.slice(0, topK))
-          },
-        )
-        setStatus('Search complete.')
-      } else {
-        // Image search uses the non-streaming endpoint
-        const data = await search(mode, textQuery.trim(), imagePath.trim(), topK)
-        const solidIds = new Set(data.solid_results.map((r) => r.image_id))
-        const dedupedSoft = data.soft_results.filter((r) => !solidIds.has(r.image_id))
-        setSolidResults(data.solid_results.slice(0, topK))
-        setSoftResults(dedupedSoft.slice(0, topK))
-        setStatus('Search complete.')
-      }
+      await searchTextStream(
+        textQuery.trim(),
+        topK,
+        (step) => {
+          setAgentSteps((prev) => [...prev, step])
+        },
+        (data) => {
+          const solidIds = new Set(data.solid_results.map((r) => r.image_id))
+          const dedupedSoft = data.soft_results.filter((r) => !solidIds.has(r.image_id))
+          setSolidResults(data.solid_results.slice(0, topK))
+          setSoftResults(dedupedSoft.slice(0, topK))
+        },
+      )
+      setStatus('Search complete.')
       setSearched(true)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Search failed.')
@@ -141,17 +127,27 @@ export default function App() {
 
           {searched && (
             <>
+              <label className={styles.scoreToggle}>
+                <input
+                  type="checkbox"
+                  checked={showScore}
+                  onChange={(e) => setShowScore(e.target.checked)}
+                />
+                Show score
+              </label>
               <ResultsSection
-                title="Solid Matches"
+                title="Results"
                 items={solidResults}
                 thumbSize={thumbSize}
+                showScore={showScore}
                 emptyText="No solid matches found."
                 onImageClick={handleImageClick}
               />
               <ResultsSection
-                title="Soft Matches"
+                title="You Might Like"
                 items={softResults}
                 thumbSize={thumbSize}
+                showScore={showScore}
                 emptyText="No additional soft matches."
                 onImageClick={handleImageClick}
               />

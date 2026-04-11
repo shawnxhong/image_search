@@ -1,5 +1,6 @@
 .nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
   margin-bottom: 16px;
   border-bottom: 2px solid #e5e7eb;
@@ -25,4 +26,12 @@
 .tab.active {
   color: #111827;
   border-bottom-color: #111827;
+}
+
+@media (max-width: 640px) {
+  .tab {
+    flex: 1 1 33%;
+    min-width: 120px;
+    padding: 10px 16px;
+  }
 }

@@ -25,6 +25,9 @@
 .content {
   padding: 10px;
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .muted {
@@ -33,7 +36,7 @@
 }
 
 .reason {
-  margin: 6px 0 0;
+  margin: 0;
 }
 
 .date {
@@ -48,5 +51,17 @@
 
 .caption {
   color: #4b5563;
-  margin: 2px 0;
+  margin: 0;
+}
+
+.metaRow {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 8px;
+  color: #4b5563;
+}
+
+.metaLabel {
+  color: #6b7280;
+  font-weight: 600;
 }

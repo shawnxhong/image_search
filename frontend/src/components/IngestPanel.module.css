@@ -1,7 +1,7 @@
 .panel {
   background: #fff;
   border-radius: 12px;
-  padding: 16px;
+  padding: clamp(14px, 2vw, 20px);
   margin-bottom: 16px;
   border: 1px solid #e5e7eb;
 }
@@ -14,6 +14,7 @@
 
 .browseRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   margin-bottom: 10px;
@@ -141,6 +142,7 @@
   margin-bottom: 10px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 

@@ -14,3 +14,14 @@ body {
   background: #f5f7fb;
   color: #1f2937;
 }
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
